@@ -16,3 +16,17 @@ export const downloadFile = async (url: string, dest: string) => {
     });
   });
 };
+
+export const copyFolder = (src: string, dest: string) => {
+  fs.mkdirSync(dest, { recursive: true });
+  fs.readdirSync(src).forEach((item) => {
+    const srcPath = path.join(src, item);
+    const destPath = path.join(dest, item);
+    if (fs.lstatSync(srcPath).isDirectory()) {
+      copyFolder(srcPath, destPath);
+    } else {
+      fs.mkdirSync(dest, { recursive: true });
+      fs.copyFileSync(srcPath, destPath);
+    }
+  });
+}

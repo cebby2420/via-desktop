@@ -8,7 +8,7 @@ import path from "path";
 import fs from "fs";
 import process from "process";
 import started from "electron-squirrel-startup";
-import { downloadFile } from "./utils";
+import { downloadFile, copyFolder } from "./utils";
 import log from "electron-log/main";
 
 // This hardcoded url is obviously not a good idea, but what can you do?
@@ -33,8 +33,6 @@ const createWindow = async () => {
     minHeight: 768,
     minWidth: 1024,
   });
-
-  await downloadKeyboardDefinitions();
 
   mainWindow.loadURL(`http://localhost:${serverPort}`);
 
@@ -96,15 +94,20 @@ const downloadKeyboardDefinitions = async () => {
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // Check if the definitions folder exists, if not, copy the initial definitions
-  if (!fs.existsSync(defsFileDir)) {
-    log.info("Loading initial definitions");
-    fs.mkdirSync(defsFileDir, { recursive: true });
-    fs.cpSync(path.join(__dirname, "definitions"), defsFileDir, {
-      recursive: true,
-    });
+  try {
+    if (!fs.existsSync(defsFilePath) || !fs.existsSync(hashFilePath)) {
+      log.info("Loading initial definitions", path.join(__dirname, "definitions"));
+      // Copy the initial definitions to the definitions folder without recursive option in copy function
+      fs.mkdirSync(defsFileDir, { recursive: true });
+      copyFolder(path.join(__dirname, "definitions"), defsFileDir);
+    }
+  } catch (e) {
+    log.error(e);
   }
+
+  await downloadKeyboardDefinitions();
 
   const serverProcess = utilityProcess.fork(path.join(__dirname, "server.js"), [
     defsFileDir,

@@ -19,7 +19,7 @@ if (fs.existsSync(defsFilePath)) {
   generatedAt = definitions.generatedAt;
 }
 
-const serveApplication = serveStatic(path.join(__dirname), {
+const serveApplication = serveStatic(__dirname, {
   index: ["index.html"],
 });
 const serveDefinitions = serveStatic(defsFileDir, { maxAge: "1d" });
@@ -34,17 +34,26 @@ const requestHandler = async (
     // If the requested file is a definition that is older than generatedAt we want to try to update it
     if (!req.url.includes("supported_kbs.json")) {
       const definitionPath = path.join(defsFileDir, req.url);
+      const packagedDefinitionPath = path.join(__dirname, 'definitions', req.url);
       let shouldUpdate = true;
       if (fs.existsSync(definitionPath)) {
         const definitionStats = fs.statSync(definitionPath);
         shouldUpdate = definitionStats.mtime.getTime() <= generatedAt;
+      } else if (fs.existsSync(packagedDefinitionPath)) {
+        log.info('Copying packaged definition', packagedDefinitionPath);
+        fs.mkdirSync(path.dirname(definitionPath), { recursive: true });
+        fs.copyFileSync(packagedDefinitionPath, definitionPath);
       }
 
       // Download definitions
       if (shouldUpdate) {
         log.info("Updating definition", req.url);
         const url = `${VIA_BASE_URL}definitions${req.url}`;
-        await downloadFile(url, definitionPath);
+        try {
+          await downloadFile(url, definitionPath);
+        } catch (e) {
+          log.error(e);
+        }
       }
     }
 
