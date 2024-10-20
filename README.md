@@ -2,7 +2,7 @@
 
 VIA Desktop is an Electron application designed to provide an offline experience for [VIA](https://github.com/the-via/app). This repository contains the source code and configuration files necessary to build and run the application.
 
-The source code of this application relies fully on the bundled VIA application. But instead of hosting it on a webserver, this Electron application hosts it locally.
+The source code of this application relies fully on the bundled VIA application. But instead of hosting it on a webserver, this Electron application hosts it locally. Daily builds are available via [GitHub releases](https://github.com/cebby2420/via-desktop/releases)
 
 There are two parts to this:
 
