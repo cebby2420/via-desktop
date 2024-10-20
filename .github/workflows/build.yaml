@@ -1,4 +1,4 @@
-name: Build
+name: Build & Publish
 
 on:
   push:
@@ -12,32 +12,54 @@ jobs:
   build_assets:
     runs-on: ubuntu-latest
     name: Build VIA assets
+    outputs:
+      via-build-artifact: ${{ steps.upload-artifact.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@v4
         with:
           repository: the-via/app
       - uses: actions/setup-node@v4
         with:
-          node-version: latest
+          node-version: lts/*
       - name: Install dependencies
         run: npm ci
+      - name: Apply patch to device-store.ts
+        run: |
+          sed -i 's|^\(\s*\)//\(.*fetch.*\)|\1\2|; s|^\(\s*\)\(const hash = document.getElementById.*\)|\1//\2|' src/utils/device-store.ts
       - name: Build
         run: npm run build
+      - name: Upload artifact
+        id: upload-artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: via-build
+          path: dist/
+          retention-days: 1
 
   build:
+    needs: build_assets
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    name: Build VIA-desktop
     steps:
     - uses: actions/checkout@v4
+    - uses: actions/download-artifact@v4
+      with:
+        run-id: ${{ needs.build_assets.outputs.via-build-artifact }}
+        path: public/
     - uses: actions/setup-node@v4
       with:
-        node-version: latest
+        node-version: lts/*
     - name: Install dependencies
       run: npm ci
     - name: Build for x64
-      run: npm run make -- --arch x64
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: npm run publish -- --arch x64
     - name: Build for arm64
       if: matrix.os == 'macos-latest'
-      run: npm run make -- --arch arm64
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: npm run publish -- --arch arm64
