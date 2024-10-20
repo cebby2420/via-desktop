@@ -10,7 +10,8 @@
     "make": "electron-forge make",
     "publish": "electron-forge publish",
     "lint": "eslint --ext .ts,.tsx .",
-    "prettier": "prettier --write ."
+    "prettier": "prettier . --write",
+    "prettier:check": "prettier . --check"
   },
   "dependencies": {
     "electron-log": "^5.2.0",

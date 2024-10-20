@@ -21,7 +21,6 @@ Gatekeeper on macOS is gatekeeping you from opening this unsigned and unnotarise
 xattr -d com.apple.quarantine /Users/<me>/Downloads/via-desktop.app
 ```
 
-
 ## Usage
 
 To start the application, run:
