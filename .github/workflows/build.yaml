@@ -54,6 +54,8 @@ jobs:
         node-version: lts/*
     - name: Install dependencies
       run: npm ci
+    - name: Set version to today
+      run: npm version $(date +'%Y.%m.%d') --no-git-tag-version
     - name: Build for x64
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
