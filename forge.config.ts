@@ -9,9 +9,9 @@ import { FuseV1Options, FuseVersion } from "@electron/fuses";
 
 const config: ForgeConfig = {
   packagerConfig: {
+    appBundleId: "dev.cebby.via-desktop",
     asar: true,
-    icon: "src/icon",
-    osxSign: {},
+    icon: "src/icon"
   },
   rebuildConfig: {},
   makers: [
