@@ -41,6 +41,10 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+        arch: [x64]
+        include:
+          - os: macos-latest
+            arch: arm64
     runs-on: ${{ matrix.os }}
     name: Build VIA-desktop
     steps:
@@ -56,12 +60,7 @@ jobs:
       run: npm ci
     - name: Set version to today
       run: npm version $(date +'%Y.%m.%d') --no-git-tag-version
-    - name: Build for x64
+    - name: Build for ${{ matrix.os }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: npm run publish -- --arch x64
-    - name: Build for arm64
-      if: matrix.os == 'macos-latest'
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: npm run publish -- --arch arm64
+      run: npm run publish -- --arch ${{ matrix.arch }}
