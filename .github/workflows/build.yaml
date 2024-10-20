@@ -48,19 +48,19 @@ jobs:
     runs-on: ${{ matrix.os }}
     name: Build VIA-desktop
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/download-artifact@v4
-      with:
-        run-id: ${{ needs.build_assets.outputs.via-build-artifact }}
-    - run: mv via-build/ public/
-    - uses: actions/setup-node@v4
-      with:
-        node-version: lts/*
-    - name: Install dependencies
-      run: npm ci
-    - name: Set version to today
-      run: npm version $(date +'%Y.%m.%d') --no-git-tag-version
-    - name: Build for ${{ matrix.os }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: npm run publish -- --arch ${{ matrix.arch }}
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ needs.build_assets.outputs.via-build-artifact }}
+      - run: mv via-build/ public/
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+      - name: Install dependencies
+        run: npm ci
+      - name: Set version to today
+        run: npm version $(date +'%Y.%m.%d') --no-git-tag-version
+      - name: Build for ${{ matrix.os }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run publish -- --arch ${{ matrix.arch }}
