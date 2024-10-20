@@ -34,13 +34,17 @@ const requestHandler = async (
     // If the requested file is a definition that is older than generatedAt we want to try to update it
     if (!req.url.includes("supported_kbs.json")) {
       const definitionPath = path.join(defsFileDir, req.url);
-      const packagedDefinitionPath = path.join(__dirname, 'definitions', req.url);
+      const packagedDefinitionPath = path.join(
+        __dirname,
+        "definitions",
+        req.url,
+      );
       let shouldUpdate = true;
       if (fs.existsSync(definitionPath)) {
         const definitionStats = fs.statSync(definitionPath);
         shouldUpdate = definitionStats.mtime.getTime() <= generatedAt;
       } else if (fs.existsSync(packagedDefinitionPath)) {
-        log.info('Copying packaged definition', packagedDefinitionPath);
+        log.info("Copying packaged definition", packagedDefinitionPath);
         fs.mkdirSync(path.dirname(definitionPath), { recursive: true });
         fs.copyFileSync(packagedDefinitionPath, definitionPath);
       }

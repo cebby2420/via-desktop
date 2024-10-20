@@ -11,7 +11,7 @@ const config: ForgeConfig = {
   packagerConfig: {
     appBundleId: "dev.cebby.via-desktop",
     asar: true,
-    icon: "src/icon"
+    icon: "src/icon",
   },
   rebuildConfig: {},
   makers: [
@@ -37,7 +37,6 @@ const config: ForgeConfig = {
           owner: "cebby2420",
           name: "via-desktop",
         },
-        prerelease: true,
       },
     },
   ],

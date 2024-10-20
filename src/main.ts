@@ -98,7 +98,10 @@ app.whenReady().then(async () => {
   // Check if the definitions folder exists, if not, copy the initial definitions
   try {
     if (!fs.existsSync(defsFilePath) || !fs.existsSync(hashFilePath)) {
-      log.info("Loading initial definitions", path.join(__dirname, "definitions"));
+      log.info(
+        "Loading initial definitions",
+        path.join(__dirname, "definitions"),
+      );
       // Copy the initial definitions to the definitions folder without recursive option in copy function
       fs.mkdirSync(defsFileDir, { recursive: true });
       copyFolder(path.join(__dirname, "definitions"), defsFileDir);

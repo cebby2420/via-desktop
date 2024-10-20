@@ -29,4 +29,4 @@ export const copyFolder = (src: string, dest: string) => {
       fs.copyFileSync(srcPath, destPath);
     }
   });
-}
+};
