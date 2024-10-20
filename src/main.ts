@@ -13,6 +13,8 @@ import log from "electron-log/main";
 
 // This hardcoded url is obviously not a good idea, but what can you do?
 const VIA_BASE_URL = "https://usevia.app/";
+// Set this to false to always check the device against the supported devices list before allowing access
+const ALLOW_UNSUPPORTED_DEVICES = true;
 
 let serverPort: number;
 const previouslyAllowedDevices: number[] = [];
@@ -47,6 +49,10 @@ const createWindow = async () => {
   // Register a device permission handler that allows access to the devices registered in the VIA definitions files
   mainWindow.webContents.session.setDevicePermissionHandler(
     (details: DevicePermissionHandlerHandlerDetails) => {
+      if (ALLOW_UNSUPPORTED_DEVICES) {
+        return true;
+      }
+
       const vendorProductId =
         Number(details.device.vendorId) * 65536 +
         Number(details.device.productId);
