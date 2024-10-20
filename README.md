@@ -13,6 +13,15 @@ By default the definitions from VIA are included in the binary, so you do not ne
 
 It's important to note that the VIA source code is changed very slightly to make sure that the hash of the definitions that is used for caching is not taking from the hardcoded value in the HTML. It's obviously possible that the definitions on the server may contain functionality that your local VIA build does not support. But at the moment we do not really care about that :)
 
+### Downloading a release for macOS: _App is damaged and can't be opened_
+
+Gatekeeper on macOS is gatekeeping you from opening this unsigned and unnotarised application. Use a command below to allow your computer to open it.
+
+```
+xattr -d com.apple.quarantine /Users/<me>/Downloads/via-desktop.app
+```
+
+
 ## Usage
 
 To start the application, run:
