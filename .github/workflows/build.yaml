@@ -1,0 +1,43 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+  repository_dispatch:
+    types: [definition_update]
+  workflow_dispatch:
+
+jobs:
+  build_assets:
+    runs-on: ubuntu-latest
+    name: Build VIA assets
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: the-via/app
+      - uses: actions/setup-node@v4
+        with:
+          node-version: latest
+      - name: Install dependencies
+        run: npm ci
+      - name: Build
+        run: npm run build
+
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: latest
+    - name: Install dependencies
+      run: npm ci
+    - name: Build for x64
+      run: npm run make -- --arch x64
+    - name: Build for arm64
+      if: matrix.os == 'macos-latest'
+      run: npm run make -- --arch arm64

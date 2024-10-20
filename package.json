@@ -1,0 +1,51 @@
+{
+  "name": "via-desktop",
+  "productName": "via-desktop",
+  "version": "1.0.0",
+  "description": "My Electron application description",
+  "main": ".vite/build/main.js",
+  "scripts": {
+    "start": "electron-forge start",
+    "package": "electron-forge package",
+    "make": "electron-forge make",
+    "publish": "electron-forge publish",
+    "lint": "eslint --ext .ts,.tsx .",
+    "prettier": "prettier --write ."
+  },
+  "dependencies": {
+    "electron-log": "^5.2.0",
+    "electron-squirrel-startup": "^1.0.1",
+    "finalhandler": "^1.3.1",
+    "serve-static": "^1.16.2"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "^7.5.0",
+    "@electron-forge/maker-deb": "^7.5.0",
+    "@electron-forge/maker-rpm": "^7.5.0",
+    "@electron-forge/maker-squirrel": "^7.5.0",
+    "@electron-forge/maker-zip": "^7.5.0",
+    "@electron-forge/plugin-auto-unpack-natives": "^7.5.0",
+    "@electron-forge/plugin-fuses": "^7.5.0",
+    "@electron-forge/plugin-vite": "^7.5.0",
+    "@electron-forge/publisher-github": "^7.5.0",
+    "@electron/fuses": "^1.8.0",
+    "@types/electron-squirrel-startup": "^1.0.2",
+    "@types/finalhandler": "^1.2.3",
+    "@types/serve-static": "^1.15.7",
+    "@typescript-eslint/eslint-plugin": "^5.62.0",
+    "@typescript-eslint/parser": "^5.62.0",
+    "electron": "33.0.1",
+    "eslint": "^8.57.1",
+    "eslint-plugin-import": "^2.31.0",
+    "prettier": "^3.3.3",
+    "ts-node": "^10.9.2",
+    "typescript": "~4.5.4",
+    "vite": "^5.4.9"
+  },
+  "keywords": [],
+  "author": {
+    "name": "Cebby",
+    "email": "cebby2420@outlook.com"
+  },
+  "license": "GPLv3"
+}
