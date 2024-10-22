@@ -1,8 +1,11 @@
 # VIA Desktop
 
+> [!IMPORTANT]
+> This application is provided as-is, daily builds are fully automated and there are no auto-updates included. 
+
 VIA Desktop is an Electron application designed to provide an offline experience for [VIA](https://github.com/the-via/app). This repository contains the source code and configuration files necessary to build and run the application.
 
-The source code of this application relies fully on the bundled VIA application. But instead of hosting it on a webserver, this Electron application hosts it locally. Daily builds are available via [GitHub releases](https://github.com/cebby2420/via-desktop/releases)
+The source code of this application relies fully on the bundled VIA application. But instead of hosting it on a webserver, this Electron application hosts it locally. Daily builds are available via [GitHub releases](https://github.com/cebby2420/via-desktop/releases).
 
 There are two parts to this:
 
@@ -15,7 +18,7 @@ It's important to note that the VIA source code is changed very slightly to make
 
 ### Downloading a release for macOS: _App is damaged and can't be opened_
 
-Gatekeeper on macOS is gatekeeping you from opening this unsigned and unnotarised application. Use a command below to allow your computer to open it.
+Gatekeeper on macOS is gatekeeping you from opening this unsigned and unnotarised application. Use a command like the one below to allow your computer to open it.
 
 ```
 xattr -d com.apple.quarantine /Users/<me>/Downloads/via-desktop.app
