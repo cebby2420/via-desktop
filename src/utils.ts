@@ -30,3 +30,8 @@ export const copyFolder = (src: string, dest: string) => {
     }
   });
 };
+
+export const clearFolder = (dirPath: string) => {
+  fs.rmSync(dirPath, { recursive: true });
+  fs.mkdirSync(dirPath, { recursive: true });
+};

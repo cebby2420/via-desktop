@@ -6,6 +6,7 @@ import fs from "fs";
 import { AddressInfo } from "net";
 import { downloadFile } from "./utils";
 import log from "electron-log/node";
+import settings from "electron-settings";
 
 const VIA_BASE_URL = process.argv[3];
 const defsFileDir = process.argv[2];
@@ -49,8 +50,10 @@ const requestHandler = async (
         fs.copyFileSync(packagedDefinitionPath, definitionPath);
       }
 
+      const onlyLocalDefinitions = await settings.get("onlyLocalDefinitions");
+
       // Download definitions
-      if (shouldUpdate) {
+      if (!onlyLocalDefinitions && shouldUpdate) {
         log.info("Updating definition", req.url);
         const url = `${VIA_BASE_URL}definitions${req.url}`;
         try {

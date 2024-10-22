@@ -8,13 +8,13 @@ import path from "path";
 import fs from "fs";
 import process from "process";
 import started from "electron-squirrel-startup";
-import { downloadFile, copyFolder } from "./utils";
+import { downloadFile, copyFolder, clearFolder } from "./utils";
 import log from "electron-log/main";
+import { initMenu } from "./menu";
+import settings from "electron-settings";
 
 // This hardcoded url is obviously not a good idea, but what can you do?
 const VIA_BASE_URL = "https://usevia.app/";
-// Set this to false to always check the device against the supported devices list before allowing access
-const ALLOW_UNSUPPORTED_DEVICES = true;
 
 let serverPort: number;
 const previouslyAllowedDevices: number[] = [];
@@ -30,11 +30,14 @@ if (started) {
 const createWindow = async () => {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
+    title: "VIA",
     height: 800,
     width: 1200,
     minHeight: 768,
     minWidth: 1024,
   });
+
+  initMenu(downloadKeyboardDefinitions);
 
   mainWindow.loadURL(`http://localhost:${serverPort}`);
 
@@ -49,7 +52,7 @@ const createWindow = async () => {
   // Register a device permission handler that allows access to the devices registered in the VIA definitions files
   mainWindow.webContents.session.setDevicePermissionHandler(
     (details: DevicePermissionHandlerHandlerDetails) => {
-      if (ALLOW_UNSUPPORTED_DEVICES) {
+      if (settings.getSync("allowUnknownDevices")) {
         return true;
       }
 
@@ -75,7 +78,12 @@ const createWindow = async () => {
   );
 };
 
-const downloadKeyboardDefinitions = async () => {
+const downloadKeyboardDefinitions = async (force = false) => {
+  const onlyLocalDefinitions = await settings.get("onlyLocalDefinitions");
+  if (onlyLocalDefinitions) {
+    return;
+  }
+
   try {
     // Check when the definitions file was last updated
     const defsLastUpdated = fs.existsSync(defsFilePath)
@@ -83,7 +91,8 @@ const downloadKeyboardDefinitions = async () => {
       : new Date(0);
     const elapsedTime = new Date().getTime() - defsLastUpdated.getTime();
 
-    if (elapsedTime > 1000 * 60 * 60 * 24) {
+    if (elapsedTime > 1000 * 60 * 60 * 24 || force) {
+      clearFolder(defsFileDir);
       await downloadFile(
         `${VIA_BASE_URL}definitions/supported_kbs.json`,
         defsFilePath,
@@ -114,6 +123,14 @@ app.whenReady().then(async () => {
     }
   } catch (e) {
     log.error(e);
+  }
+
+  // Check if settings exist, if not, create them
+  if (!settings.hasSync("onlyLocalDefinitions")) {
+    settings.setSync({
+      onlyLocalDefinitions: false,
+      allowUnknownDevices: false,
+    });
   }
 
   await downloadKeyboardDefinitions();

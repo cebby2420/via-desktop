@@ -1,7 +1,7 @@
 # VIA Desktop
 
 > [!IMPORTANT]
-> This application is provided as-is, daily builds are fully automated and there are no auto-updates included. 
+> This application is provided as-is, daily builds are fully automated and there are no auto-updates included.
 
 VIA Desktop is an Electron application designed to provide an offline experience for [VIA](https://github.com/the-via/app). This repository contains the source code and configuration files necessary to build and run the application.
 
