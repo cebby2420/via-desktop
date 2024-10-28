@@ -20,16 +20,18 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: the-via/app
-      - uses: actions/setup-node@v4
-        with:
-          node-version: lts/*
+          fetch-depth: 0
+      - name: Use Bun
+        uses: oven-sh/setup-bun@v1
       - name: Install dependencies
-        run: npm ci
+        run: |
+          bun install
+          bun run refresh-kbs
       - name: Apply patch to device-store.ts
         run: |
           sed -i 's|^\(\s*\)//\(.*fetch.*\)|\1\2|; s|^\(\s*\)\(const hash = document.getElementById.*\)|\1//\2|' src/utils/device-store.ts
       - name: Build
-        run: npm run build
+        run: bun run build
       - name: Upload artifact
         id: upload-artifact
         uses: actions/upload-artifact@v4
