@@ -3,6 +3,7 @@ import settings from "electron-settings";
 
 export const initMenu = (
   downloadKeyboardDefinitions: (force: boolean) => Promise<void>,
+  settingChanged: (name: string) => Promise<void>,
 ) => {
   const menu = Menu.buildFromTemplate([
     { role: "appMenu" },
@@ -26,6 +27,8 @@ export const initMenu = (
               "onlyLocalDefinitions",
               !(await settings.get("onlyLocalDefinitions")),
             );
+
+            settingChanged("onlyLocalDefinitions");
           },
         },
         {

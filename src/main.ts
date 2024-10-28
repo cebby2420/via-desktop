@@ -17,6 +17,7 @@ import settings from "electron-settings";
 const VIA_BASE_URL = "https://usevia.app/";
 
 let serverPort: number;
+let serverProcess: ReturnType<typeof utilityProcess.fork>;
 const previouslyAllowedDevices: number[] = [];
 const defsFileDir = path.join(app.getPath("sessionData"), "definitions");
 const defsFilePath = path.join(defsFileDir, "supported_kbs.json");
@@ -26,6 +27,33 @@ const hashFilePath = path.join(defsFileDir, "hash.json");
 if (started) {
   app.quit();
 }
+
+const startServer = (): Promise<number> => {
+  if (serverProcess) {
+    serverProcess.kill();
+    serverPort = undefined;
+  }
+
+  return new Promise((resolve) => {
+    serverProcess = utilityProcess.fork(path.join(__dirname, "server.js"), [
+      defsFileDir,
+      VIA_BASE_URL,
+      settings.getSync("onlyLocalDefinitions").toString(),
+    ]);
+
+    serverProcess.once("message", (port: number) => {
+      serverPort = port;
+      resolve(port);
+    });
+  });
+};
+
+const settingChanged = (window: BrowserWindow) => async (name: string) => {
+  if (name === "onlyLocalDefinitions") {
+    const newPort = await startServer();
+    window.loadURL(`http://localhost:${newPort}`);
+  }
+};
 
 const createWindow = async () => {
   // Create the browser window.
@@ -37,7 +65,7 @@ const createWindow = async () => {
     minWidth: 1024,
   });
 
-  initMenu(downloadKeyboardDefinitions);
+  initMenu(downloadKeyboardDefinitions, settingChanged(mainWindow));
 
   mainWindow.loadURL(`http://localhost:${serverPort}`);
 
@@ -135,14 +163,8 @@ app.whenReady().then(async () => {
 
   await downloadKeyboardDefinitions();
 
-  const serverProcess = utilityProcess.fork(path.join(__dirname, "server.js"), [
-    defsFileDir,
-    VIA_BASE_URL,
-  ]);
-  serverProcess.once("message", (port: number) => {
-    serverPort = port;
-    createWindow();
-  });
+  await startServer();
+  createWindow();
 });
 
 // Quit when all windows are closed, except on macOS. There, it's common

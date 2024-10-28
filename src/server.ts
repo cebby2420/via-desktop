@@ -8,8 +8,9 @@ import { downloadFile } from "./utils";
 import log from "electron-log/node";
 import settings from "electron-settings";
 
-const VIA_BASE_URL = process.argv[3];
 const defsFileDir = process.argv[2];
+const VIA_BASE_URL = process.argv[3];
+const onlyLocalDefinitions = process.argv[4] === "true";
 
 // Get generated at from the supported_kbs.json file
 const defsFilePath = path.join(defsFileDir, "supported_kbs.json");
@@ -49,8 +50,6 @@ const requestHandler = async (
         fs.mkdirSync(path.dirname(definitionPath), { recursive: true });
         fs.copyFileSync(packagedDefinitionPath, definitionPath);
       }
-
-      const onlyLocalDefinitions = await settings.get("onlyLocalDefinitions");
 
       // Download definitions
       if (!onlyLocalDefinitions && shouldUpdate) {
