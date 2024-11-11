@@ -8,6 +8,7 @@ export const initMenu = (
   const menu = Menu.buildFromTemplate([
     { role: "appMenu" },
     { role: "fileMenu" },
+    { role: "editMenu" },
     { role: "viewMenu" },
     { role: "windowMenu" },
     {
