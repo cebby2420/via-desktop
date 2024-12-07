@@ -12,8 +12,8 @@ import { downloadFile, copyFolder, clearFolder } from "./utils";
 import log from "electron-log/main";
 import { initMenu } from "./menu";
 import settings from "electron-settings";
+import { updateElectronApp } from "update-electron-app";
 
-// This hardcoded url is obviously not a good idea, but what can you do?
 const VIA_BASE_URL = "https://usevia.app/";
 
 let serverPort: number;
@@ -67,7 +67,7 @@ const createWindow = async () => {
 
   initMenu(downloadKeyboardDefinitions, settingChanged(mainWindow));
 
-  mainWindow.loadURL(`http://localhost:${serverPort}`);
+  await mainWindow.loadURL(`http://localhost:${serverPort}`);
 
   const supportedVendorProductIds: number[] = [];
   const definitionsFileContents = fs.readFileSync(defsFilePath);
@@ -164,7 +164,11 @@ app.whenReady().then(async () => {
   await downloadKeyboardDefinitions();
 
   await startServer();
-  createWindow();
+  await createWindow();
+  updateElectronApp({
+    updateInterval: "1 week",
+    logger: log,
+  });
 });
 
 // Quit when all windows are closed, except on macOS. There, it's common
