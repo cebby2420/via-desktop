@@ -2,6 +2,7 @@ import {
   app,
   BrowserWindow,
   DevicePermissionHandlerHandlerDetails,
+  protocol,
   utilityProcess,
 } from "electron";
 import path from "path";
@@ -15,6 +16,7 @@ import settings from "electron-settings";
 import { updateElectronApp } from "update-electron-app";
 
 const VIA_BASE_URL = "https://usevia.app/";
+const APP_SCHEME = 'via-desktop';
 
 let serverPort: number;
 let serverProcess: ReturnType<typeof utilityProcess.fork>;
@@ -27,6 +29,11 @@ const hashFilePath = path.join(defsFileDir, "hash.json");
 if (started) {
   app.quit();
 }
+
+protocol.registerSchemesAsPrivileged([{
+  scheme: APP_SCHEME,
+  privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true }
+}]);
 
 const startServer = (): Promise<number> => {
   if (serverProcess) {
@@ -50,8 +57,8 @@ const startServer = (): Promise<number> => {
 
 const settingChanged = (window: BrowserWindow) => async (name: string) => {
   if (name === "onlyLocalDefinitions") {
-    const newPort = await startServer();
-    window.loadURL(`http://localhost:${newPort}`);
+    serverPort = await startServer();
+    window.loadURL(`${APP_SCHEME}://index.html`);
   }
 };
 
@@ -67,7 +74,7 @@ const createWindow = async () => {
 
   initMenu(downloadKeyboardDefinitions, settingChanged(mainWindow));
 
-  await mainWindow.loadURL(`http://localhost:${serverPort}`);
+  await mainWindow.loadURL(`${APP_SCHEME}://index.html`);
 
   const supportedVendorProductIds: number[] = [];
   const definitionsFileContents = fs.readFileSync(defsFilePath);
@@ -138,6 +145,13 @@ const downloadKeyboardDefinitions = async (force = false) => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
+  protocol.handle(APP_SCHEME, (request) => {
+    const baseUrl = `http://localhost:${serverPort}`;
+    const url = new URL(baseUrl + request.url.replace(`${APP_SCHEME}://index.html/`, '/'));
+    // forward everything as-is, we want to support whatever was originally intended
+    return fetch(url, { ...request });
+  });
+
   // Check if the definitions folder exists, if not, copy the initial definitions
   try {
     if (!fs.existsSync(defsFilePath) || !fs.existsSync(hashFilePath)) {
