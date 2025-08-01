@@ -9,4 +9,4 @@ bun run build
 
 cp -R dist/ ../public
 cd ..
-rm -rf via-app
+rm -rf "$VIA_DIR"
