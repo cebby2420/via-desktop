@@ -6,7 +6,6 @@ import fs from "fs";
 import { AddressInfo } from "net";
 import { downloadFile } from "./utils";
 import log from "electron-log/node";
-import settings from "electron-settings";
 
 const defsFileDir = process.argv[2];
 const VIA_BASE_URL = process.argv[3];
