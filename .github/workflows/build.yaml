@@ -1,8 +1,9 @@
-name: Build & Publish
+name: Build
 
 on:
   schedule:
     - cron: "0 12 * * 1"
+  pull_request:
   push:
     branches:
       - main
@@ -65,7 +66,11 @@ jobs:
         run: npm ci
       - name: Set version to today
         run: npm version $(date +'%Y.%m.%d') --no-git-tag-version
-      - name: Build for ${{ matrix.os }}
+      - name: Publish for ${{ matrix.os }}
+        if: github.event_name != 'pull_request'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run publish -- --arch ${{ matrix.arch }}
+      - name: Build for ${{ matrix.os }}
+        if: github.event_name == 'pull_request'
+        run: npm run make -- --arch ${{ matrix.arch }}
