@@ -8,7 +8,6 @@ import {
 import path from "path";
 import fs from "fs";
 import process from "process";
-import started from "electron-squirrel-startup";
 import { downloadFile, copyFolder, clearFolder } from "./utils";
 import log from "electron-log/main";
 import { initMenu } from "./menu";
@@ -25,8 +24,23 @@ const defsFileDir = path.join(app.getPath("sessionData"), "definitions");
 const defsFilePath = path.join(defsFileDir, "supported_kbs.json");
 const hashFilePath = path.join(defsFileDir, "hash.json");
 
-// Handle creating/removing shortcuts on Windows when installing/uninstalling.
-if (started) {
+// Handle Squirrel startup events (Windows only)
+const handleStartupEvent = () => {
+  if (process.platform !== "win32") {
+    return false;
+  }
+
+  const squirrelCommand = process.argv[1];
+  switch (squirrelCommand) {
+    case "--squirrel-install":
+    case "--squirrel-updated":
+    case "--squirrel-uninstall":
+    case "--squirrel-obsolete":
+      return true;
+  }
+};
+
+if (handleStartupEvent()) {
   app.quit();
 }
 
