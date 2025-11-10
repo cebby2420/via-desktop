@@ -35,7 +35,9 @@ const config: ForgeConfig = {
       options: {
         id: "dev.cebby.via-desktop",
         icon: "src/icon.png",
+        productName: "VIA Desktop",
         files: [],
+        categories: ["Utility"],
       },
     }),
   ],
