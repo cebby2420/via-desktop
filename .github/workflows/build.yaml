@@ -55,6 +55,13 @@ jobs:
     name: Build VIA-desktop
     steps:
       - uses: actions/checkout@v4
+      - if: ${{ matrix.os == 'ubuntu-latest' }}
+        name: Install Flatpak dependencies
+        run: |
+          sudo apt-get install flatpak -y
+          sudo apt-get install flatpak-builder -y
+          sudo apt-get install elfutils -y
+          flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
       - uses: actions/download-artifact@v4
         with:
           run-id: ${{ needs.build_assets.outputs.via-build-artifact }}
