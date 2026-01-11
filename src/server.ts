@@ -20,7 +20,14 @@ if (fs.existsSync(defsFilePath)) {
   generatedAt = definitions.generatedAt;
 }
 
-const serveApplication = serveStatic(__dirname, {
+let viaPublicPath = path.join(process.resourcesPath, "public");
+// In development mode, the resourcesPath does not exist, so we want the public folder from the project directory
+if (!fs.existsSync(viaPublicPath)) {
+  log.info("Using development public folder");
+  viaPublicPath = path.join(__dirname, "../..", "public");
+}
+
+const serveApplication = serveStatic(viaPublicPath, {
   index: ["index.html"],
 });
 const serveDefinitions = serveStatic(defsFileDir, { maxAge: "1d" });
@@ -36,7 +43,7 @@ const requestHandler = async (
     if (!req.url.includes("supported_kbs.json")) {
       const definitionPath = path.join(defsFileDir, req.url);
       const packagedDefinitionPath = path.join(
-        __dirname,
+        viaPublicPath,
         "definitions",
         req.url,
       );
