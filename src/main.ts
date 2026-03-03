@@ -24,6 +24,15 @@ const defsFileDir = path.join(app.getPath("sessionData"), "definitions");
 const defsFilePath = path.join(defsFileDir, "supported_kbs.json");
 const hashFilePath = path.join(defsFileDir, "hash.json");
 
+const run = (args: string[], done: () => void): void => {
+  const updateExe = path.resolve(path.dirname(process.execPath), '..', 'Update.exe');
+  log('Spawning `%s` with args `%s`', updateExe, args);
+  
+  spawn(updateExe, args, {
+    detached: true
+  }).on('close', done);
+};
+
 // Handle Squirrel startup events (Windows only)
 const handleStartupEvent = () => {
   if (process.platform !== "win32") {
@@ -31,11 +40,15 @@ const handleStartupEvent = () => {
   }
 
   const squirrelCommand = process.argv[1];
+  const target = path.basename(process.execPath);
   switch (squirrelCommand) {
     case "--squirrel-install":
-    case "--squirrel-updated":
+      run(['--createShortcut=' + target + ''], app.quit);
     case "--squirrel-uninstall":
+      run(['--removeShortcut=' + target + ''], app.quit);
     case "--squirrel-obsolete":
+      app.quit();
+    case "--squirrel-updated":
       return true;
   }
 };
