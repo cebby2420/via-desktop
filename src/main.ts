@@ -48,10 +48,13 @@ const handleStartupEvent = () => {
   switch (squirrelCommand) {
     case "--squirrel-install":
       run(["--createShortcut=" + target + ""], app.quit);
+      break;
     case "--squirrel-uninstall":
       run(["--removeShortcut=" + target + ""], app.quit);
+      break;
     case "--squirrel-obsolete":
       app.quit();
+      break;
     case "--squirrel-updated":
       return true;
   }
