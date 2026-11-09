@@ -9,10 +9,19 @@ The source code of this application relies fully on the bundled VIA application.
 
 There are two parts to this:
 
-- The Electron application that makes sure the latest keyboard definition list is downloaded
-- A proxy webserver that downloads the latest definition for your keyboard, and hosts the VIA single-page-application to be shown in the built-in browser
+- The Electron app opens the bundled VIA interface and refreshes the keyboard catalog in the background.
+- A local web server serves VIA and the bundled or cached keyboard definitions.
 
-By default the definitions from VIA are included in the binary, so you do not necessarily need an internet connection. But having one makes sure that your definition gets updated automatically.
+VIA Desktop opens from disk, including on a first launch without internet
+access. A cached catalog stays usable after it becomes a day old. The app
+checks for updates after opening and keeps the last usable files if the check
+fails. An updated catalog takes effect the next time you open the app.
+**Settings → Force download definitions** applies a successful refresh to the
+current window. **Settings → Only use local definitions** skips online checks.
+
+When you connect a keyboard, VIA Desktop uses its cached or bundled definition
+immediately. If neither copy exists, the app tries to download the definition.
+You can also load a manufacturer's VIA JSON file while offline.
 
 It's important to note that the VIA source code is changed very slightly to make sure that the hash of the definitions that is used for caching is not taking from the hardcoded value in the HTML. It's obviously possible that the definitions on the server may contain functionality that your local VIA build does not support. But at the moment we do not really care about that :)
 
