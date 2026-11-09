@@ -1,25 +1,20 @@
-import {
-  app,
-  BrowserWindow,
-  DevicePermissionHandlerHandlerDetails,
-  protocol,
-  utilityProcess,
-} from "electron";
+import { app, BrowserWindow, protocol, utilityProcess } from "electron";
 import path from "path";
 import fs from "fs";
 import process from "process";
-import { downloadFile, copyFolder, clearFolder } from "./utils";
+import { downloadFile, clearFolder } from "./utils";
 import log from "electron-log/main";
 import { initMenu } from "./menu";
+import { registerViaHid } from "./hid";
 import settings from "electron-settings";
 import { updateElectronApp } from "update-electron-app";
 
 const VIA_BASE_URL = "https://usevia.app/";
 const APP_SCHEME = "via-desktop";
+const APP_ORIGIN = `${APP_SCHEME}://index.html`;
 
 let serverPort: number;
 let serverProcess: ReturnType<typeof utilityProcess.fork>;
-const previouslyAllowedDevices: number[] = [];
 const defsFileDir = path.join(app.getPath("sessionData"), "definitions");
 const defsFilePath = path.join(defsFileDir, "supported_kbs.json");
 const hashFilePath = path.join(defsFileDir, "hash.json");
@@ -111,47 +106,31 @@ const createWindow = async () => {
     width: 1200,
     minHeight: 768,
     minWidth: 1024,
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+    },
   });
 
-  initMenu(downloadKeyboardDefinitions, settingChanged(mainWindow));
-
-  await mainWindow.loadURL(`${APP_SCHEME}://index.html`);
-
-  const supportedVendorProductIds: number[] = [];
   const definitionsFileContents = fs.readFileSync(defsFilePath);
   const definitions = JSON.parse(definitionsFileContents.toString());
-  supportedVendorProductIds.push(
+  const supportedVendorProductIds = new Set([
     ...Object.values<number>(definitions.vendorProductIds.v2),
     ...Object.values<number>(definitions.vendorProductIds.v3),
+  ]);
+  const connectKeyboard = registerViaHid(
+    mainWindow,
+    APP_ORIGIN,
+    (vendorId, productId) =>
+      !!settings.getSync("allowUnknownDevices") ||
+      supportedVendorProductIds.has(vendorId * 65536 + productId),
+  );
+  initMenu(
+    downloadKeyboardDefinitions,
+    settingChanged(mainWindow),
+    connectKeyboard,
   );
 
-  // Register a device permission handler that allows access to the devices registered in the VIA definitions files
-  mainWindow.webContents.session.setDevicePermissionHandler(
-    (details: DevicePermissionHandlerHandlerDetails) => {
-      if (settings.getSync("allowUnknownDevices")) {
-        return true;
-      }
-
-      const vendorProductId =
-        Number(details.device.vendorId) * 65536 +
-        Number(details.device.productId);
-      if (previouslyAllowedDevices.includes(vendorProductId)) {
-        return true;
-      }
-
-      if (supportedVendorProductIds.includes(vendorProductId)) {
-        log.info(
-          "Allowing device",
-          vendorProductId,
-          "name" in details.device ? details.device.name : "",
-        );
-        previouslyAllowedDevices.push(vendorProductId);
-        return true;
-      }
-
-      return false;
-    },
-  );
+  await mainWindow.loadURL(APP_ORIGIN);
 };
 
 const downloadKeyboardDefinitions = async (force = false) => {
@@ -198,13 +177,21 @@ app.whenReady().then(async () => {
   // Check if the definitions folder exists, if not, copy the initial definitions
   try {
     if (!fs.existsSync(defsFilePath) || !fs.existsSync(hashFilePath)) {
-      log.info(
-        "Loading initial definitions",
-        path.join(__dirname, "definitions"),
+      const packagedDefinitions = path.join(
+        app.isPackaged ? process.resourcesPath : app.getAppPath(),
+        "public",
+        "definitions",
       );
-      // Copy the initial definitions to the definitions folder without recursive option in copy function
+      log.info("Loading initial definitions", packagedDefinitions);
       fs.mkdirSync(defsFileDir, { recursive: true });
-      copyFolder(path.join(__dirname, "definitions"), defsFileDir);
+      fs.copyFileSync(
+        path.join(packagedDefinitions, "supported_kbs.json"),
+        defsFilePath,
+      );
+      fs.copyFileSync(
+        path.join(packagedDefinitions, "hash.json"),
+        hashFilePath,
+      );
     }
   } catch (e) {
     log.error(e);
@@ -222,10 +209,18 @@ app.whenReady().then(async () => {
 
   await startServer();
   await createWindow();
-  updateElectronApp({
-    updateInterval: "1 week",
-    logger: log,
-  });
+  // Portable Windows packages have no Squirrel installer to run updates.
+  if (
+    process.platform !== "win32" ||
+    fs.existsSync(
+      path.resolve(path.dirname(process.execPath), "..", "Update.exe"),
+    )
+  ) {
+    updateElectronApp({
+      updateInterval: "1 week",
+      logger: log,
+    });
+  }
 });
 
 // Quit when all windows are closed, except on macOS. There, it's common

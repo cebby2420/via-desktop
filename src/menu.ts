@@ -4,6 +4,7 @@ import settings from "electron-settings";
 export const initMenu = (
   downloadKeyboardDefinitions: (force: boolean) => Promise<void>,
   settingChanged: (name: string) => Promise<void>,
+  connectKeyboard: () => Promise<void>,
 ) => {
   const menu = Menu.buildFromTemplate([
     { role: "appMenu" },
@@ -14,6 +15,10 @@ export const initMenu = (
     {
       label: "Settings",
       submenu: [
+        {
+          label: "Connect VIA keyboard…",
+          click: connectKeyboard,
+        },
         {
           label: "Force download definitions",
           click: async () => {

@@ -14,7 +14,7 @@ const config: ForgeConfig = {
     appBundleId: "dev.cebby.via-desktop",
     asar: true,
     icon: "src/icon",
-    extraResource: ["./public"],
+    extraResource: ["./public", "./desktop-fonts"],
   },
   rebuildConfig: {},
   makers: [

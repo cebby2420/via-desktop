@@ -26,6 +26,17 @@ xattr -d com.apple.quarantine /Users/<me>/Downloads/via-desktop.app
 
 ## Usage
 
+In this fork, plug in the keyboard over USB and use **Load VIA definition
+and connect** on the Configure screen. Choose the manufacturer's VIA
+definition JSON, then pick the keyboard. VIA Desktop remembers the
+definition. On later launches, use **Connect VIA keyboard**. The native
+**Settings → Connect VIA keyboard…** menu opens the same picker.
+
+The picker opens for an explicit connection request. You can leave
+**Allow connecting to unknown devices** off. The desktop build includes
+the Fira Sans fonts used for key legends, so the labels can draw offline.
+[Discovery report #40](https://github.com/cebby2420/via-desktop/issues/40)
+
 To start the application, run:
 
 ```sh
@@ -59,6 +70,14 @@ To build the application for distribution, run:
 ```sh
 npm run make
 ```
+
+The Windows test build used the web assets from the upstream
+[v2026.5.18 portable package](https://github.com/cebby2420/via-desktop/releases/tag/v2026.5.18).
+To build with the same web assets, copy that package's `resources/public`
+directory to `public` in this checkout. Then run `npm ci` and
+`npm run package -- --platform=win32 --arch=x64`. The app is generated
+under `out/`. The bundled fonts have their own
+[copyright and licence notices](desktop-fonts/README.md).
 
 ## License
 

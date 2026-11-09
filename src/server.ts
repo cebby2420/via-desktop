@@ -31,11 +31,40 @@ const serveApplication = serveStatic(viaPublicPath, {
   index: ["index.html"],
 });
 const serveDefinitions = serveStatic(defsFileDir, { maxAge: "1d" });
+const serveDesktopFonts = serveStatic(
+  path.join(viaPublicPath, "..", "desktop-fonts"),
+);
+const indexHtml = fs
+  .readFileSync(path.join(viaPublicPath, "index.html"), "utf8")
+  .replace(
+    /<link\b[^>]*href=["']https:\/\/fonts\.(?:googleapis|gstatic)\.com[^"']*["'][^>]*>/g,
+    "",
+  )
+  .replace(
+    "</head>",
+    `<link rel="stylesheet" href="/desktop-fonts/fonts.css">
+     <script>document.fonts.load('700 16px "Fira Sans"').catch(() => {});</script>
+     </head>`,
+  );
 
 const requestHandler = async (
   req: http.IncomingMessage,
   res: http.ServerResponse,
 ) => {
+  const requestPath = req.url.split("?")[0];
+  if (
+    (req.method === "GET" || req.method === "HEAD") &&
+    (requestPath === "/" || requestPath === "/index.html")
+  ) {
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.end(req.method === "GET" ? indexHtml : undefined);
+    return;
+  }
+  if (requestPath.startsWith("/desktop-fonts/")) {
+    req.url = req.url.slice("/desktop-fonts".length);
+    serveDesktopFonts(req, res, finalhandler(req, res));
+    return;
+  }
   if (req.url.includes("definitions")) {
     req.url = req.url.replace("/definitions", "");
 
