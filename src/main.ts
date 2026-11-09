@@ -134,9 +134,8 @@ const createWindow = async () => {
   const connectKeyboard = registerViaHid(
     mainWindow,
     APP_ORIGIN,
-    (vendorId, productId) =>
-      !!settings.getSync("allowUnknownDevices") ||
-      supportedVendorProductIds.has(vendorId * 65536 + productId),
+    (id) => supportedVendorProductIds.has(id),
+    () => !!settings.getSync("allowUnknownDevices"),
   );
   const reloadDefinitions = async () => {
     await startServer();

@@ -9,6 +9,7 @@ import {
   keyboardDefinitionV3ToVIADefinitionV3,
 } from "@the-via/reader";
 import {
+  hasStoredViaDefinition,
   installConnectionControl,
   requestViaKeyboard,
   storeViaDefinition,
@@ -46,7 +47,8 @@ function parseViaDefinition(text: unknown) {
 export function registerViaHid(
   window: BrowserWindow,
   origin: string,
-  isKnownDevice: (vendorId: number, productId: number) => boolean,
+  hasCatalogDefinition: (id: number) => boolean,
+  allowUnknownDevices: () => boolean,
 ): () => Promise<void> {
   const contents = window.webContents;
   const session = contents.session;
@@ -60,7 +62,10 @@ export function registerViaHid(
     ({ deviceType, origin: requester, device }) =>
       deviceType === "hid" &&
       isViaPage(requester) &&
-      isKnownDevice(Number(device.vendorId), Number(device.productId)),
+      (allowUnknownDevices() ||
+        hasCatalogDefinition(
+          Number(device.vendorId) * 65536 + Number(device.productId),
+        )),
   );
 
   const chooseDevice = async (
@@ -134,11 +139,11 @@ export function registerViaHid(
         }),
       };
       pickerRequested = true;
-      const granted: boolean = await contents.executeJavaScript(
-        `(${requestViaKeyboard})(${JSON.stringify(filter)}, ${pendingDefinitionId === undefined})`,
+      const selectedId: number | null = await contents.executeJavaScript(
+        `(${requestViaKeyboard})(${JSON.stringify(filter)}, ${pendingDefinitionId !== undefined})`,
         true,
       );
-      if (!granted) {
+      if (selectedId === null) {
         const saved =
           pendingDefinitionId === undefined ? "" : "Definition saved. ";
         return {
@@ -148,12 +153,23 @@ export function registerViaHid(
             "No keyboard connected. Check the USB cable and wired mode, then try Connect VIA keyboard.",
         };
       }
-      if (pendingDefinitionId !== undefined) {
-        pendingDefinitionId = undefined;
-        // VIA loads its custom definitions at startup. The permission survives
-        // navigation within this window, so it can discover the approved device.
-        contents.reload();
+      if (
+        pendingDefinitionId === undefined &&
+        !hasCatalogDefinition(selectedId) &&
+        !(await contents.executeJavaScript(
+          `(${hasStoredViaDefinition})(${selectedId})`,
+        ))
+      ) {
+        return {
+          granted: false,
+          message:
+            "This keyboard needs a VIA definition. Choose Load VIA definition and connect, then select the VIA JSON for your keyboard.",
+        };
       }
+      pendingDefinitionId = undefined;
+      // VIA loads definitions and discovers approved devices at startup.
+      // The USB grant survives navigation in this window.
+      contents.reload();
       return {
         granted: true,
         message: "USB access granted. VIA is reading the keyboard.",

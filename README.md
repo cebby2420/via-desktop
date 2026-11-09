@@ -41,6 +41,9 @@ definition JSON, then pick the keyboard. VIA Desktop remembers the
 definition. On later launches, use **Connect VIA keyboard**. The native
 **Settings → Connect VIA keyboard…** menu opens the same picker.
 
+If VIA says your keyboard needs a definition, use **Load VIA definition
+and connect** with the matching VIA JSON file.
+
 The picker opens for an explicit connection request. You can leave
 **Allow connecting to unknown devices** off. The desktop build includes
 the Fira Sans fonts used for key legends, so the labels can draw offline.

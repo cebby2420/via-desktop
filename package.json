@@ -5,7 +5,7 @@
   "description": "My Electron application description",
   "main": ".vite/build/main.js",
   "scripts": {
-    "test": "node -r ts-node/register/transpile-only --test tests/definitions.test.cjs",
+    "test": "node -r ts-node/register/transpile-only --test",
     "start": "electron-forge start",
     "package": "electron-forge package",
     "make": "electron-forge make",
