@@ -1,28 +1,24 @@
-import {
-  app,
-  BrowserWindow,
-  DevicePermissionHandlerHandlerDetails,
-  protocol,
-  utilityProcess,
-} from "electron";
+import { app, BrowserWindow, net, protocol, utilityProcess } from "electron";
+import { spawn } from "child_process";
 import path from "path";
 import fs from "fs";
 import process from "process";
-import { downloadFile, copyFolder, clearFolder } from "./utils";
+import { refreshCatalog } from "./definitions";
 import log from "electron-log/main";
 import { initMenu } from "./menu";
+import { registerViaHid } from "./hid";
 import settings from "electron-settings";
 import { updateElectronApp } from "update-electron-app";
 
 const VIA_BASE_URL = "https://usevia.app/";
 const APP_SCHEME = "via-desktop";
+const APP_ORIGIN = `${APP_SCHEME}://index.html`;
 
 let serverPort: number;
 let serverProcess: ReturnType<typeof utilityProcess.fork>;
-const previouslyAllowedDevices: number[] = [];
+let supportedVendorProductIds = new Set<number>();
+let catalogRefresh: Promise<boolean> | undefined;
 const defsFileDir = path.join(app.getPath("sessionData"), "definitions");
-const defsFilePath = path.join(defsFileDir, "supported_kbs.json");
-const hashFilePath = path.join(defsFileDir, "hash.json");
 
 const run = (args: string[], done: () => void): void => {
   const updateExe = path.resolve(
@@ -89,18 +85,37 @@ const startServer = (): Promise<number> => {
       settings.getSync("onlyLocalDefinitions").toString(),
     ]);
 
-    serverProcess.once("message", (port: number) => {
-      serverPort = port;
-      resolve(port);
-    });
+    serverProcess.once(
+      "message",
+      ({ port, supportedIds }: { port: number; supportedIds: number[] }) => {
+        supportedVendorProductIds = new Set(supportedIds);
+        serverPort = port;
+        resolve(port);
+      },
+    );
   });
 };
 
-const settingChanged = (window: BrowserWindow) => async (name: string) => {
-  if (name === "onlyLocalDefinitions") {
-    serverPort = await startServer();
-    window.loadURL(`${APP_SCHEME}://index.html`);
+const downloadKeyboardDefinitions = (force = false) => {
+  if (settings.getSync("onlyLocalDefinitions")) {
+    return Promise.resolve(false);
   }
+  return (catalogRefresh ??= refreshCatalog(
+    defsFileDir,
+    VIA_BASE_URL,
+    force,
+    net.fetch,
+  )
+    .catch((error) => {
+      log.warn(
+        "Definition catalog refresh failed; keeping local definitions",
+        error,
+      );
+      return false;
+    })
+    .finally(() => {
+      catalogRefresh = undefined;
+    }));
 };
 
 const createWindow = async () => {
@@ -111,75 +126,33 @@ const createWindow = async () => {
     width: 1200,
     minHeight: 768,
     minWidth: 1024,
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+    },
   });
 
-  initMenu(downloadKeyboardDefinitions, settingChanged(mainWindow));
-
-  await mainWindow.loadURL(`${APP_SCHEME}://index.html`);
-
-  const supportedVendorProductIds: number[] = [];
-  const definitionsFileContents = fs.readFileSync(defsFilePath);
-  const definitions = JSON.parse(definitionsFileContents.toString());
-  supportedVendorProductIds.push(
-    ...Object.values<number>(definitions.vendorProductIds.v2),
-    ...Object.values<number>(definitions.vendorProductIds.v3),
+  const connectKeyboard = registerViaHid(
+    mainWindow,
+    APP_ORIGIN,
+    (id) => supportedVendorProductIds.has(id),
+    () => !!settings.getSync("allowUnknownDevices"),
   );
-
-  // Register a device permission handler that allows access to the devices registered in the VIA definitions files
-  mainWindow.webContents.session.setDevicePermissionHandler(
-    (details: DevicePermissionHandlerHandlerDetails) => {
-      if (settings.getSync("allowUnknownDevices")) {
-        return true;
-      }
-
-      const vendorProductId =
-        Number(details.device.vendorId) * 65536 +
-        Number(details.device.productId);
-      if (previouslyAllowedDevices.includes(vendorProductId)) {
-        return true;
-      }
-
-      if (supportedVendorProductIds.includes(vendorProductId)) {
-        log.info(
-          "Allowing device",
-          vendorProductId,
-          "name" in details.device ? details.device.name : "",
-        );
-        previouslyAllowedDevices.push(vendorProductId);
-        return true;
-      }
-
-      return false;
+  const reloadDefinitions = async () => {
+    await startServer();
+    await mainWindow.loadURL(APP_ORIGIN);
+  };
+  initMenu(
+    async () => {
+      if (await downloadKeyboardDefinitions(true)) await reloadDefinitions();
     },
+    async () => {
+      await reloadDefinitions();
+      void downloadKeyboardDefinitions();
+    },
+    connectKeyboard,
   );
-};
 
-const downloadKeyboardDefinitions = async (force = false) => {
-  const onlyLocalDefinitions = await settings.get("onlyLocalDefinitions");
-  if (onlyLocalDefinitions) {
-    return;
-  }
-
-  try {
-    // Check when the definitions file was last updated
-    const defsLastUpdated = fs.existsSync(defsFilePath)
-      ? fs.statSync(defsFilePath).mtime
-      : new Date(0);
-    const elapsedTime = new Date().getTime() - defsLastUpdated.getTime();
-
-    if (elapsedTime > 1000 * 60 * 60 * 24 || force) {
-      clearFolder(defsFileDir);
-      await downloadFile(
-        `${VIA_BASE_URL}definitions/supported_kbs.json`,
-        defsFilePath,
-      );
-      await downloadFile(`${VIA_BASE_URL}definitions/hash.json`, hashFilePath);
-    } else {
-      log.info("Definitions file is up to date");
-    }
-  } catch (e) {
-    log.error(e);
-  }
+  await mainWindow.loadURL(APP_ORIGIN);
 };
 
 // This method will be called when Electron has finished
@@ -195,21 +168,6 @@ app.whenReady().then(async () => {
     return fetch(url, { ...request });
   });
 
-  // Check if the definitions folder exists, if not, copy the initial definitions
-  try {
-    if (!fs.existsSync(defsFilePath) || !fs.existsSync(hashFilePath)) {
-      log.info(
-        "Loading initial definitions",
-        path.join(__dirname, "definitions"),
-      );
-      // Copy the initial definitions to the definitions folder without recursive option in copy function
-      fs.mkdirSync(defsFileDir, { recursive: true });
-      copyFolder(path.join(__dirname, "definitions"), defsFileDir);
-    }
-  } catch (e) {
-    log.error(e);
-  }
-
   // Check if settings exist, if not, create them
   if (!settings.hasSync("onlyLocalDefinitions")) {
     settings.setSync({
@@ -218,14 +176,21 @@ app.whenReady().then(async () => {
     });
   }
 
-  await downloadKeyboardDefinitions();
-
   await startServer();
   await createWindow();
-  updateElectronApp({
-    updateInterval: "1 week",
-    logger: log,
-  });
+  void downloadKeyboardDefinitions();
+  // Portable Windows packages have no Squirrel installer to run updates.
+  if (
+    process.platform !== "win32" ||
+    fs.existsSync(
+      path.resolve(path.dirname(process.execPath), "..", "Update.exe"),
+    )
+  ) {
+    updateElectronApp({
+      updateInterval: "1 week",
+      logger: log,
+    });
+  }
 });
 
 // Quit when all windows are closed, except on macOS. There, it's common

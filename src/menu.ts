@@ -2,8 +2,9 @@ import { Menu, shell } from "electron";
 import settings from "electron-settings";
 
 export const initMenu = (
-  downloadKeyboardDefinitions: (force: boolean) => Promise<void>,
-  settingChanged: (name: string) => Promise<void>,
+  downloadKeyboardDefinitions: () => Promise<void>,
+  localDefinitionsChanged: () => Promise<void>,
+  connectKeyboard: () => Promise<void>,
 ) => {
   const menu = Menu.buildFromTemplate([
     { role: "appMenu" },
@@ -15,13 +16,16 @@ export const initMenu = (
       label: "Settings",
       submenu: [
         {
+          label: "Connect VIA keyboard…",
+          click: connectKeyboard,
+        },
+        {
           label: "Force download definitions",
-          click: async () => {
-            await downloadKeyboardDefinitions(true);
-          },
+          click: downloadKeyboardDefinitions,
         },
         {
           label: "Only use local definitions",
+          type: "checkbox",
           checked: !!settings.getSync("onlyLocalDefinitions"),
           click: async () => {
             await settings.set(
@@ -29,7 +33,7 @@ export const initMenu = (
               !(await settings.get("onlyLocalDefinitions")),
             );
 
-            settingChanged("onlyLocalDefinitions");
+            await localDefinitionsChanged();
           },
         },
         {
