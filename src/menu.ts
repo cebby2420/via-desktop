@@ -22,6 +22,7 @@ export const initMenu = (
         },
         {
           label: "Only use local definitions",
+          type: "checkbox",
           checked: !!settings.getSync("onlyLocalDefinitions"),
           click: async () => {
             await settings.set(
