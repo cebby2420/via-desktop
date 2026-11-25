@@ -27,6 +27,10 @@ if (!fs.existsSync(viaPublicPath)) {
 const serveApplication = serveStatic(viaPublicPath, {
   index: ["index.html"],
 });
+const serveDesktopFonts = serveStatic(path.join(__dirname, "fonts"), {
+  maxAge: "1y",
+  immutable: true,
+});
 const bundledDefinitions = path.join(viaPublicPath, "definitions");
 // Keep the index, hash and device allowlist consistent for this window.
 const catalog = readCatalog(defsFileDir, bundledDefinitions);
@@ -82,6 +86,11 @@ const requestHandler = async (
   res: http.ServerResponse,
 ) => {
   const requestPath = (req.url ?? "/").split("?")[0];
+  if (requestPath.startsWith("/desktop-fonts/")) {
+    req.url = req.url.slice("/desktop-fonts".length);
+    serveDesktopFonts(req, res, finalhandler(req, res));
+    return;
+  }
   if (req.method === "GET" || req.method === "HEAD") {
     const keyboard = /^\/definitions\/(v[23]\/([0-9]+)\.json)$/.exec(
       requestPath,
