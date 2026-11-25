@@ -4,6 +4,7 @@ import {
   DevicePermissionHandlerHandlerDetails,
   net,
   protocol,
+  session,
   utilityProcess,
 } from "electron";
 import { spawn } from "child_process";
@@ -193,6 +194,20 @@ app.whenReady().then(async () => {
     // forward everything as-is, we want to support whatever was originally intended
     return fetch(url, { ...request });
   });
+
+  // Redirect Google Fonts requests to the bundled Fira Sans stylesheet so key legends work offline.
+  session.defaultSession.webRequest.onBeforeRequest(
+    {
+      urls: ["https://fonts.googleapis.com/*", "https://fonts.gstatic.com/*"],
+    },
+    (details, callback) => {
+      if (details.url.startsWith("https://fonts.googleapis.com/")) {
+        callback({ redirectURL: `${APP_ORIGIN}/desktop-fonts/fonts.css` });
+        return;
+      }
+      callback({ cancel: true });
+    },
+  );
 
   // Check if settings exist, if not, create them
   if (!settings.hasSync("onlyLocalDefinitions")) {
