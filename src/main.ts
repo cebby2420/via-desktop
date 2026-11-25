@@ -55,7 +55,7 @@ const run = (args: string[], done: () => void): void => {
     "..",
     "Update.exe",
   );
-  log("Spawning `%s` with args `%s`", updateExe, args);
+  log.info("Spawning `%s` with args `%s`", updateExe, args);
 
   spawn(updateExe, args, {
     detached: true,

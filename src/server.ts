@@ -39,7 +39,7 @@ const bundledHash = readLocalJson(
 )?.value;
 const definitionRefreshes = new Map<string, Promise<unknown>>();
 
-function refreshDefinition(relativePath: string, id: number) {
+function refreshDefinition(relativePath: string, id: number): Promise<unknown> {
   const pending = definitionRefreshes.get(relativePath);
   if (pending) return pending;
 
@@ -49,7 +49,7 @@ function refreshDefinition(relativePath: string, id: number) {
     id,
     net.fetch,
   )
-    .catch((error) => {
+    .catch((error): undefined => {
       log.warn("Keyboard definition refresh failed", relativePath, error);
       return undefined;
     })

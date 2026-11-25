@@ -23,7 +23,6 @@ const config: ForgeConfig = {
     }),
     new MakerDMG({
       icon: "src/icon.icns",
-      appPath: "",
     }),
     new MakerRpm({}),
     new MakerDeb({
