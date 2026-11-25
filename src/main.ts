@@ -2,8 +2,11 @@ import {
   app,
   BrowserWindow,
   DevicePermissionHandlerHandlerDetails,
+  dialog,
+  Event,
   net,
   protocol,
+  SelectHidDeviceDetails,
   session,
   utilityProcess,
 } from "electron";
@@ -27,6 +30,24 @@ const previouslyAllowedDevices = new Set<number>();
 let supportedVendorProductIds = new Set<number>();
 let catalogRefresh: Promise<boolean> | undefined;
 const defsFileDir = path.join(app.getPath("sessionData"), "definitions");
+
+const getVendorProductId = (vendorId: number, productId: number) =>
+  vendorId * 65536 + productId;
+
+const getAllowedUnknownDevices = (): Set<number> => {
+  const stored = settings.getSync("allowedUnknownDevices");
+  return new Set(
+    Array.isArray(stored)
+      ? stored.filter((id): id is number => typeof id === "number")
+      : [],
+  );
+};
+
+const allowUnknownDevice = (vendorProductId: number) => {
+  const allowed = getAllowedUnknownDevices();
+  allowed.add(vendorProductId);
+  settings.setSync("allowedUnknownDevices", [...allowed]);
+};
 
 const run = (args: string[], done: () => void): void => {
   const updateExe = path.resolve(
@@ -136,21 +157,25 @@ const createWindow = async () => {
     minWidth: 1024,
   });
 
+  const dismissedDevices = new Set<number>();
+  let pickerOpen = false;
+
   // Register a device permission handler that allows access to the devices registered in the VIA definitions files
+  // or previously approved by the user through the unknown-device picker.
   mainWindow.webContents.session.setDevicePermissionHandler(
     (details: DevicePermissionHandlerHandlerDetails) => {
-      if (settings.getSync("allowUnknownDevices")) {
-        return true;
-      }
-
-      const vendorProductId =
-        Number(details.device.vendorId) * 65536 +
-        Number(details.device.productId);
+      const vendorProductId = getVendorProductId(
+        Number(details.device.vendorId),
+        Number(details.device.productId),
+      );
       if (previouslyAllowedDevices.has(vendorProductId)) {
         return true;
       }
 
-      if (supportedVendorProductIds.has(vendorProductId)) {
+      if (
+        supportedVendorProductIds.has(vendorProductId) ||
+        getAllowedUnknownDevices().has(vendorProductId)
+      ) {
         log.info(
           "Allowing device",
           vendorProductId,
@@ -163,6 +188,73 @@ const createWindow = async () => {
       return false;
     },
   );
+
+  const selectHidDevice = async (
+    event: Event,
+    { deviceList }: SelectHidDeviceDetails,
+    callback: (deviceId?: string) => void,
+  ) => {
+    event.preventDefault();
+    const candidates = deviceList.filter(
+      (device) =>
+        !dismissedDevices.has(
+          getVendorProductId(device.vendorId, device.productId),
+        ),
+    );
+    if (pickerOpen || mainWindow.isDestroyed() || candidates.length === 0) {
+      callback();
+      return;
+    }
+
+    pickerOpen = true;
+    try {
+      const cancelId = candidates.length;
+      const choice = await dialog.showMessageBox(mainWindow, {
+        type: "question",
+        title: "Unknown USB Keyboard",
+        message: "Allow VIA Desktop to access an unknown keyboard?",
+        detail:
+          "This keyboard is not in VIA's built-in device list. Select a device to allow it, or Cancel to ignore it for this session.",
+        buttons: [
+          ...candidates.map(
+            ({ name, vendorId, productId }) =>
+              `${name || "USB keyboard"} (${vendorId.toString(16)}:${productId.toString(16)})`,
+          ),
+          "Cancel",
+        ],
+        cancelId,
+        defaultId: cancelId,
+      });
+
+      const chosen = candidates[choice.response];
+      if (chosen) {
+        const vendorProductId = getVendorProductId(
+          chosen.vendorId,
+          chosen.productId,
+        );
+        log.info("User approved unknown device", vendorProductId, chosen.name);
+        allowUnknownDevice(vendorProductId);
+        previouslyAllowedDevices.add(vendorProductId);
+        callback(chosen.deviceId);
+      } else {
+        for (const device of candidates) {
+          dismissedDevices.add(
+            getVendorProductId(device.vendorId, device.productId),
+          );
+        }
+        callback();
+      }
+    } catch {
+      callback();
+    } finally {
+      pickerOpen = false;
+    }
+  };
+
+  mainWindow.webContents.session.on("select-hid-device", selectHidDevice);
+  mainWindow.on("closed", () => {
+    mainWindow.webContents.session.off("select-hid-device", selectHidDevice);
+  });
 
   const reloadDefinitions = async () => {
     await startServer();
@@ -178,6 +270,12 @@ const createWindow = async () => {
     async () => {
       await reloadDefinitions();
       void downloadKeyboardDefinitions();
+    },
+    async () => {
+      await settings.set("allowedUnknownDevices", []);
+      previouslyAllowedDevices.clear();
+      dismissedDevices.clear();
+      await mainWindow.loadURL(APP_ORIGIN);
     },
   );
 
@@ -211,10 +309,10 @@ app.whenReady().then(async () => {
 
   // Check if settings exist, if not, create them
   if (!settings.hasSync("onlyLocalDefinitions")) {
-    settings.setSync({
-      onlyLocalDefinitions: false,
-      allowUnknownDevices: false,
-    });
+    settings.setSync("onlyLocalDefinitions", false);
+  }
+  if (!settings.hasSync("allowedUnknownDevices")) {
+    settings.setSync("allowedUnknownDevices", []);
   }
 
   await startServer();
