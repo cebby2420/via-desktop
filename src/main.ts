@@ -5,6 +5,7 @@ import {
   protocol,
   utilityProcess,
 } from "electron";
+import { spawn } from "child_process";
 import path from "path";
 import fs from "fs";
 import process from "process";
@@ -222,10 +223,18 @@ app.whenReady().then(async () => {
 
   await startServer();
   await createWindow();
-  updateElectronApp({
-    updateInterval: "1 week",
-    logger: log,
-  });
+  // Portable Windows packages have no Squirrel installer to run updates.
+  if (
+    process.platform !== "win32" ||
+    fs.existsSync(
+      path.resolve(path.dirname(process.execPath), "..", "Update.exe"),
+    )
+  ) {
+    updateElectronApp({
+      updateInterval: "1 week",
+      logger: log,
+    });
+  }
 });
 
 // Quit when all windows are closed, except on macOS. There, it's common
