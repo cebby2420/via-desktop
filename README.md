@@ -29,8 +29,7 @@ xattr -d com.apple.quarantine /Users/<me>/Downloads/via-desktop.app
 To start the application, run:
 
 ```sh
-./build-via.sh
-npm install
+make
 npm start
 ```
 
