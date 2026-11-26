@@ -26,7 +26,6 @@ const APP_ORIGIN = `${APP_SCHEME}://index.html`;
 
 let serverPort: number;
 let serverProcess: ReturnType<typeof utilityProcess.fork>;
-const previouslyAllowedDevices = new Set<number>();
 let supportedVendorProductIds = new Set<number>();
 let catalogRefresh: Promise<boolean> | undefined;
 const defsFileDir = path.join(app.getPath("sessionData"), "definitions");
@@ -160,6 +159,10 @@ const createWindow = async () => {
   const dismissedDevices = new Set<number>();
   let pickerOpen = false;
 
+  const isAllowedDevice = (vendorProductId: number) =>
+    supportedVendorProductIds.has(vendorProductId) ||
+    getAllowedUnknownDevices().has(vendorProductId);
+
   // Register a device permission handler that allows access to the devices registered in the VIA definitions files
   // or previously approved by the user through the unknown-device picker.
   mainWindow.webContents.session.setDevicePermissionHandler(
@@ -168,24 +171,17 @@ const createWindow = async () => {
         Number(details.device.vendorId),
         Number(details.device.productId),
       );
-      if (previouslyAllowedDevices.has(vendorProductId)) {
-        return true;
+      if (!isAllowedDevice(vendorProductId)) {
+        return false;
       }
 
-      if (
-        supportedVendorProductIds.has(vendorProductId) ||
-        getAllowedUnknownDevices().has(vendorProductId)
-      ) {
-        log.info(
-          "Allowing device",
-          vendorProductId,
-          "name" in details.device ? details.device.name : "",
-        );
-        previouslyAllowedDevices.add(vendorProductId);
-        return true;
-      }
+      log.info(
+        "Allowing device",
+        vendorProductId,
+        "name" in details.device ? details.device.name : "",
+      );
 
-      return false;
+      return true;
     },
   );
 
@@ -195,13 +191,18 @@ const createWindow = async () => {
     callback: (deviceId?: string) => void,
   ) => {
     event.preventDefault();
-    const candidates = deviceList.filter(
-      (device) =>
-        !dismissedDevices.has(
-          getVendorProductId(device.vendorId, device.productId),
-        ),
-    );
-    if (pickerOpen || mainWindow.isDestroyed() || candidates.length === 0) {
+    const candidates = deviceList.filter((device) => {
+      const id = getVendorProductId(device.vendorId, device.productId);
+      return !isAllowedDevice(id) && !dismissedDevices.has(id);
+    });
+    if (candidates.length === 0) {
+      const allowedDevice = deviceList.find((device) =>
+        isAllowedDevice(getVendorProductId(device.vendorId, device.productId)),
+      );
+      callback(allowedDevice?.deviceId);
+      return;
+    }
+    if (pickerOpen || mainWindow.isDestroyed()) {
       callback();
       return;
     }
@@ -234,7 +235,6 @@ const createWindow = async () => {
         );
         log.info("User approved unknown device", vendorProductId, chosen.name);
         allowUnknownDevice(vendorProductId);
-        previouslyAllowedDevices.add(vendorProductId);
         callback(chosen.deviceId);
       } else {
         for (const device of candidates) {
@@ -274,7 +274,6 @@ const createWindow = async () => {
     },
     async () => {
       await settings.set("allowedUnknownDevices", []);
-      previouslyAllowedDevices.clear();
       dismissedDevices.clear();
       await mainWindow.loadURL(APP_ORIGIN);
     },
