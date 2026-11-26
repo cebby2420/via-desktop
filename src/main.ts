@@ -25,6 +25,7 @@ import { updateElectronApp } from "update-electron-app";
 const VIA_BASE_URL = "https://usevia.app/";
 const APP_SCHEME = "via-desktop";
 const APP_ORIGIN = `${APP_SCHEME}://index.html`;
+const MAX_SERVER_RESTARTS = 3;
 
 type WindowBounds = {
   x: number;
@@ -36,9 +37,15 @@ type WindowBounds = {
 
 let serverPort: number | undefined;
 let serverProcess: ReturnType<typeof utilityProcess.fork> | undefined;
+let serverRestartCount = 0;
+let isRestartingServer = false;
+let isQuitting = false;
 let supportedVendorProductIds = new Set<number>();
 let catalogRefresh: Promise<boolean> | undefined;
 const defsFileDir = path.join(app.getPath("sessionData"), "definitions");
+
+const isViaOrigin = (url: string) =>
+  url === APP_ORIGIN || url.startsWith(`${APP_ORIGIN}/`);
 
 const getVendorProductId = (vendorId: number, productId: number) =>
   vendorId * 65536 + productId;
@@ -165,6 +172,7 @@ protocol.registerSchemesAsPrivileged([
 
 const startServer = (): Promise<number> => {
   if (serverProcess) {
+    isRestartingServer = true;
     serverProcess.kill();
     serverPort = undefined;
   }
@@ -176,12 +184,14 @@ const startServer = (): Promise<number> => {
       String(Boolean(settings.getSync("onlyLocalDefinitions"))),
     ]);
     serverProcess = child;
+    isRestartingServer = false;
 
     let settled = false;
     child.once(
       "message",
       ({ port, supportedIds }: { port: number; supportedIds: number[] }) => {
         settled = true;
+        serverRestartCount = 0;
         supportedVendorProductIds = new Set(supportedIds);
         serverPort = port;
         resolve(port);
@@ -195,6 +205,19 @@ const startServer = (): Promise<number> => {
       if (!settled) {
         settled = true;
         reject(new Error(`Server process exited before ready (code ${code})`));
+        return;
+      }
+      if (!isQuitting && !isRestartingServer) {
+        log.error("Local server exited unexpectedly with code", code);
+        if (serverRestartCount < MAX_SERVER_RESTARTS) {
+          serverRestartCount += 1;
+          log.info(
+            `Restarting local server (attempt ${serverRestartCount}/${MAX_SERVER_RESTARTS})`,
+          );
+          void startServer().catch((error) => {
+            log.error("Failed to restart local server", error);
+          });
+        }
       }
     });
   });
@@ -236,6 +259,11 @@ const createWindow = async () => {
     width: savedBounds?.width ?? 1200,
     minHeight: 768,
     minWidth: 1024,
+    webPreferences: {
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
   });
 
   mainWindow.once("ready-to-show", () => {
@@ -261,12 +289,20 @@ const createWindow = async () => {
       .replace(/\bElectron\//, "via-desktop/"),
   );
 
-  // Open external links in the system browser instead of a bare Electron window.
+  // Open external links in the system browser and block navigation off the VIA origin.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:\/\//.test(url)) {
       void shell.openExternal(url);
     }
     return { action: "deny" };
+  });
+  mainWindow.webContents.on("will-navigate", (event, url) => {
+    if (!isViaOrigin(url)) {
+      event.preventDefault();
+      if (/^https?:\/\//.test(url)) {
+        void shell.openExternal(url);
+      }
+    }
   });
 
   const loggedAllowedDevices = new Set<number>();
@@ -280,6 +316,9 @@ const createWindow = async () => {
   // or previously approved by the user through the unknown-device picker.
   mainWindow.webContents.session.setDevicePermissionHandler(
     (details: DevicePermissionHandlerHandlerDetails) => {
+      if (details.deviceType !== "hid" || !isViaOrigin(details.origin)) {
+        return false;
+      }
       const vendorProductId = getVendorProductId(
         Number(details.device.vendorId),
         Number(details.device.productId),
@@ -443,7 +482,20 @@ app.whenReady().then(async () => {
     settings.setSync("allowedUnknownDevices", []);
   }
 
-  await startServer();
+  try {
+    await startServer();
+  } catch (error) {
+    log.error("Failed to start local server", error);
+    dialog.showErrorBox(
+      "VIA Desktop failed to start",
+      error instanceof Error
+        ? error.message
+        : "Could not start the local VIA server.",
+    );
+    app.quit();
+    return;
+  }
+
   await createWindow();
   void downloadKeyboardDefinitions();
 
@@ -462,6 +514,7 @@ app.whenReady().then(async () => {
 });
 
 app.on("before-quit", () => {
+  isQuitting = true;
   serverProcess?.kill();
 });
 
