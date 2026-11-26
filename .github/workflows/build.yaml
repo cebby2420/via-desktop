@@ -21,12 +21,12 @@ jobs:
       via-build-artifact: ${{ steps.upload-artifact.outputs.artifact-id }}
       version: ${{ steps.release.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: the-via/app
           fetch-depth: 0
       - name: Use Bun
-        uses: oven-sh/setup-bun@v1
+        uses: oven-sh/setup-bun@v2
       - name: Install dependencies
         run: |
           bun install
@@ -40,7 +40,7 @@ jobs:
         run: bun run build
       - name: Upload artifact
         id: upload-artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: via-build
           path: dist/
@@ -80,18 +80,18 @@ jobs:
     runs-on: ${{ matrix.os }}
     name: Build VIA-desktop
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - if: ${{ matrix.os == 'ubuntu-latest' }}
         name: Install Flatpak dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y flatpak flatpak-builder elfutils
           flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           run-id: ${{ needs.build_assets.outputs.via-build-artifact }}
       - run: mv via-build/ public/
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: lts/*
       - name: Install dependencies
