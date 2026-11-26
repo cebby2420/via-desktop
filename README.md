@@ -1,32 +1,36 @@
 # VIA Desktop
 
 > [!IMPORTANT]
-> This application is provided as-is, weekly builds are fully automated and there are no auto-updates included.
+> This application is provided as-is and weekly builds are fully automated.
 
-VIA Desktop is an Electron application designed to provide an offline experience for [VIA](https://github.com/the-via/app). This repository contains the source code and configuration files necessary to build and run the application.
-
-The source code of this application relies fully on the bundled VIA application. But instead of hosting it on a webserver, this Electron application hosts it locally. Weekly builds are available via [GitHub releases](https://github.com/cebby2420/via-desktop/releases).
+VIA Desktop is an Electron application designed to provide an offline-capable desktop experience for [VIA](https://github.com/the-via/app). Weekly builds are available via [GitHub releases](https://github.com/cebby2420/via-desktop/releases).
 
 There are two parts to this:
 
-- The Electron application that makes sure the latest keyboard definition list is downloaded
-- A proxy webserver that downloads the latest definition for your keyboard, and hosts the VIA single-page-application to be shown in the built-in browser
+- The Electron application that hosts VIA locally and refreshes the keyboard catalog in the background
+- A local HTTP server that serves VIA, bundled Fira Sans fonts, and cached or bundled keyboard definitions
 
-By default the definitions from VIA are included in the binary, so you do not necessarily need an internet connection. But having one makes sure that your definition gets updated automatically.
+VIA Desktop starts immediately from bundled or cached definitions and works offline. When online, it checks for catalog updates in the background and keeps the last usable cache if a refresh fails. **Settings → Only use local definitions** disables online checks, and **Settings → Force download definitions** refreshes immediately.
 
-It's important to note that the VIA source code is changed very slightly to make sure that the hash of the definitions that is used for caching is not taking from the hardcoded value in the HTML. It's obviously possible that the definitions on the server may contain functionality that your local VIA build does not support. But at the moment we do not really care about that :)
+### Unknown / Custom Keyboards
+
+Keyboards in VIA's built-in catalog connect automatically. For keyboards not in the catalog (e.g. using a manufacturer JSON uploaded in VIA's Design tab), click **Authorize device** (or **Authorize New**) in VIA to approve that specific keyboard in the native picker. Approved devices are remembered across launches and can be reset via **Settings → Clear allowed unknown devices**.
 
 ### Downloading a release for macOS: _App is damaged and can't be opened_
 
-Gatekeeper on macOS is gatekeeping you from opening this unsigned and unnotarised application. Use a command like the one below to allow your computer to open it.
+Gatekeeper on macOS blocks opening unsigned and unnotarised applications. Use the command below to allow macOS to open it:
 
-```
+```sh
 xattr -d com.apple.quarantine /Users/<me>/Downloads/via-desktop.app
 ```
 
+### Linux USB permissions
+
+On Linux, grant your user read/write access to your keyboard's `/dev/hidraw*` device via `udev` rules (see the [QMK Linux udev instructions](https://docs.qmk.fm/faq_build#linux-udev-rules)).
+
 ## Usage
 
-To start the application, run:
+To start the application locally:
 
 ```sh
 ./build-via.sh
@@ -36,17 +40,16 @@ npm start
 
 ## Development
 
-### Linting
-
-To lint the codebase, run:
+### Linting, Formatting, Typechecking & Tests
 
 ```sh
 npm run lint
+npm run prettier:check
+npx tsc --noEmit
+npm test
 ```
 
-### Formatting
-
-To format the codebase using Prettier, run:
+To auto-format with Prettier:
 
 ```sh
 npm run prettier
@@ -54,7 +57,7 @@ npm run prettier
 
 ## Build
 
-To build the application for distribution, run:
+To build the application for distribution:
 
 ```sh
 npm run make
