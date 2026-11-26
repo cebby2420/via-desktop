@@ -287,10 +287,12 @@ const createWindow = async () => {
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
   protocol.handle(APP_SCHEME, (request) => {
-    const baseUrl = `http://localhost:${serverPort}`;
-    const url = new URL(baseUrl + request.url.replace(`${APP_ORIGIN}/`, "/"));
-    // forward everything as-is, we want to support whatever was originally intended
-    return fetch(url, { ...request });
+    const requested = new URL(request.url);
+    const url = new URL(
+      requested.pathname + requested.search,
+      `http://127.0.0.1:${serverPort}`,
+    );
+    return fetch(url, { method: request.method });
   });
 
   // Redirect Google Fonts requests to the bundled Fira Sans stylesheet so key legends work offline.
