@@ -157,6 +157,12 @@ const createWindow = async () => {
     minWidth: 1024,
   });
 
+  // Strip Electron from the User-Agent so VIA shows its built-in Authorize buttons,
+  // giving users a real user gesture for WebHID device selection and reconnection.
+  mainWindow.webContents.setUserAgent(
+    mainWindow.webContents.getUserAgent().replace(/\s*Electron\/\S+/, ""),
+  );
+
   const dismissedDevices = new Set<number>();
   let pickerOpen = false;
 
@@ -189,19 +195,29 @@ const createWindow = async () => {
     },
   );
 
+  const isAllowedDevice = (vendorProductId: number) =>
+    previouslyAllowedDevices.has(vendorProductId) ||
+    supportedVendorProductIds.has(vendorProductId) ||
+    getAllowedUnknownDevices().has(vendorProductId);
+
   const selectHidDevice = async (
     event: Event,
     { deviceList }: SelectHidDeviceDetails,
     callback: (deviceId?: string) => void,
   ) => {
     event.preventDefault();
-    const candidates = deviceList.filter(
-      (device) =>
-        !dismissedDevices.has(
-          getVendorProductId(device.vendorId, device.productId),
-        ),
-    );
-    if (pickerOpen || mainWindow.isDestroyed() || candidates.length === 0) {
+    const candidates = deviceList.filter((device) => {
+      const id = getVendorProductId(device.vendorId, device.productId);
+      return !isAllowedDevice(id) && !dismissedDevices.has(id);
+    });
+    if (candidates.length === 0) {
+      const allowedDevice = deviceList.find((device) =>
+        isAllowedDevice(getVendorProductId(device.vendorId, device.productId)),
+      );
+      callback(allowedDevice?.deviceId);
+      return;
+    }
+    if (pickerOpen || mainWindow.isDestroyed()) {
       callback();
       return;
     }
