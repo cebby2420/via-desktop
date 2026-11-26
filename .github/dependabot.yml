@@ -4,16 +4,39 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 7
     groups:
       github-actions:
         patterns:
           - "*"
+        update-types:
+          - "minor"
+          - "patch"
 
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 7
     groups:
+      electron-forge:
+        patterns:
+          - "@electron-forge/*"
+        update-types:
+          - "major"
+      eslint:
+        patterns:
+          - "eslint"
+          - "@eslint/*"
+        update-types:
+          - "major"
+      fontsource:
+        patterns:
+          - "@fontsource/*"
+        update-types:
+          - "major"
       dev-dependencies:
         dependency-type: "development"
         update-types:
