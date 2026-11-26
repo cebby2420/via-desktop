@@ -88,6 +88,19 @@ if (handleStartupEvent()) {
   app.quit();
 }
 
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    const existingWindow = BrowserWindow.getAllWindows()[0];
+    if (existingWindow) {
+      if (existingWindow.isMinimized()) existingWindow.restore();
+      existingWindow.focus();
+    }
+  });
+}
+
 protocol.registerSchemesAsPrivileged([
   {
     scheme: APP_SCHEME,
@@ -155,6 +168,14 @@ const createWindow = async () => {
     minHeight: 768,
     minWidth: 1024,
   });
+
+  // Replace Electron in the User-Agent with via-desktop so VIA shows its built-in
+  // Authorize buttons, giving users a real user gesture for unknown HID devices.
+  mainWindow.webContents.setUserAgent(
+    mainWindow.webContents
+      .getUserAgent()
+      .replace(/\bElectron\//, "via-desktop/"),
+  );
 
   const dismissedDevices = new Set<number>();
   let pickerOpen = false;
@@ -286,6 +307,10 @@ const createWindow = async () => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
+  if (!hasSingleInstanceLock) {
+    return;
+  }
+
   protocol.handle(APP_SCHEME, (request) => {
     const baseUrl = `http://localhost:${serverPort}`;
     const url = new URL(baseUrl + request.url.replace(`${APP_ORIGIN}/`, "/"));
