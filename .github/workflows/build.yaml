@@ -53,20 +53,16 @@ jobs:
           BASE_VERSION="$(date +'%Y.%-m.%-d')"
           VERSION="$BASE_VERSION"
           if [ "${{ github.event_name }}" != "pull_request" ]; then
-            if ! gh release create "v$VERSION" \
+            if gh api "repos/${{ github.repository }}/git/ref/tags/v$BASE_VERSION" >/dev/null 2>&1 \
+              || gh release view "v$BASE_VERSION" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+              VERSION="${BASE_VERSION}-${{ github.run_number }}"
+            fi
+            gh release create "v$VERSION" \
               --repo "${{ github.repository }}" \
               --title "v$VERSION" \
               --draft \
               --generate-notes \
-              --target "${{ github.sha }}"; then
-              VERSION="${BASE_VERSION}-${{ github.run_number }}"
-              gh release create "v$VERSION" \
-                --repo "${{ github.repository }}" \
-                --title "v$VERSION" \
-                --draft \
-                --generate-notes \
-                --target "${{ github.sha }}"
-            fi
+              --target "${{ github.sha }}"
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
