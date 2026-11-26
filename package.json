@@ -40,7 +40,7 @@
     "@types/finalhandler": "^1.2.4",
     "@types/serve-static": "^2.2.0",
     "electron": "45.5.0",
-    "eslint": "^9.39.5",
+    "eslint": "^10.15.0",
     "globals": "^17.14.0",
     "prettier": "^3.10.1",
     "ts-node": "^10.9.2",
