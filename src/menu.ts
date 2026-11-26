@@ -5,6 +5,7 @@ export const initMenu = (
   downloadKeyboardDefinitions: () => Promise<void>,
   localDefinitionsChanged: () => Promise<void>,
   clearAllowedUnknownDevices: () => Promise<void>,
+  openLogsFolder: () => Promise<void>,
 ) => {
   const menu = Menu.buildFromTemplate([
     { role: "appMenu" },
@@ -46,6 +47,10 @@ export const initMenu = (
     {
       role: "help",
       submenu: [
+        {
+          label: "Open Logs Folder",
+          click: openLogsFolder,
+        },
         {
           label: "Learn More",
           click: async () => {

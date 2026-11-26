@@ -6,6 +6,7 @@ import {
   Event,
   net,
   protocol,
+  screen,
   SelectHidDeviceDetails,
   session,
   shell,
@@ -24,6 +25,14 @@ import { updateElectronApp } from "update-electron-app";
 const VIA_BASE_URL = "https://usevia.app/";
 const APP_SCHEME = "via-desktop";
 const APP_ORIGIN = `${APP_SCHEME}://index.html`;
+
+type WindowBounds = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  isMaximized?: boolean;
+};
 
 let serverPort: number | undefined;
 let serverProcess: ReturnType<typeof utilityProcess.fork> | undefined;
@@ -47,6 +56,44 @@ const allowUnknownDevice = (vendorProductId: number) => {
   const allowed = getAllowedUnknownDevices();
   allowed.add(vendorProductId);
   settings.setSync("allowedUnknownDevices", [...allowed]);
+};
+
+const getSavedWindowBounds = (): WindowBounds | undefined => {
+  const raw = settings.getSync("windowBounds");
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return undefined;
+  }
+  const { x, y, width, height, isMaximized } = raw as Record<string, unknown>;
+  if (
+    typeof x !== "number" ||
+    typeof y !== "number" ||
+    typeof width !== "number" ||
+    typeof height !== "number" ||
+    width < 1024 ||
+    height < 768
+  ) {
+    return undefined;
+  }
+
+  const bounds = { x, y, width, height };
+  const visibleOnDisplay = screen.getAllDisplays().some(({ workArea }) => {
+    const overlapX =
+      Math.min(bounds.x + bounds.width, workArea.x + workArea.width) -
+      Math.max(bounds.x, workArea.x);
+    const overlapY =
+      Math.min(bounds.y + bounds.height, workArea.y + workArea.height) -
+      Math.max(bounds.y, workArea.y);
+    return overlapX >= 100 && overlapY >= 100;
+  });
+
+  if (!visibleOnDisplay) {
+    return undefined;
+  }
+
+  return {
+    ...bounds,
+    isMaximized: typeof isMaximized === "boolean" ? isMaximized : false,
+  };
 };
 
 const run = (args: string[], done: () => void): void => {
@@ -176,13 +223,34 @@ const downloadKeyboardDefinitions = (force = false) => {
 };
 
 const createWindow = async () => {
+  const savedBounds = getSavedWindowBounds();
+
   // Create the browser window.
   const mainWindow = new BrowserWindow({
     title: "VIA",
-    height: 800,
-    width: 1200,
+    show: false,
+    backgroundColor: "#1d1b1b",
+    x: savedBounds?.x,
+    y: savedBounds?.y,
+    height: savedBounds?.height ?? 800,
+    width: savedBounds?.width ?? 1200,
     minHeight: 768,
     minWidth: 1024,
+  });
+
+  mainWindow.once("ready-to-show", () => {
+    if (savedBounds?.isMaximized) {
+      mainWindow.maximize();
+    }
+    mainWindow.show();
+  });
+
+  mainWindow.on("close", () => {
+    const isMaximized = mainWindow.isMaximized();
+    const bounds = isMaximized
+      ? mainWindow.getNormalBounds()
+      : mainWindow.getBounds();
+    settings.setSync("windowBounds", { ...bounds, isMaximized });
   });
 
   // Replace Electron in the User-Agent with via-desktop so VIA shows its built-in
@@ -323,6 +391,10 @@ const createWindow = async () => {
       if (!mainWindow.isDestroyed()) {
         await mainWindow.loadURL(APP_ORIGIN);
       }
+    },
+    async () => {
+      const logDir = path.dirname(log.transports.file.getFile().path);
+      await shell.openPath(logDir);
     },
   );
 
