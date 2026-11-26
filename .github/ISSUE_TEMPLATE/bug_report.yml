@@ -1,0 +1,71 @@
+name: Bug Report
+description: Report a bug or keyboard connection issue in VIA Desktop
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      options:
+        - macOS (Apple Silicon / arm64)
+        - macOS (Intel / x64)
+        - Windows (x64)
+        - Linux (DEB)
+        - Linux (RPM)
+        - Linux (Flatpak)
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: VIA Desktop Version
+      placeholder: e.g. v2026.11.26
+    validations:
+      required: true
+
+  - type: input
+    id: keyboard
+    attributes:
+      label: Keyboard Model & VID:PID (if applicable)
+      description: Include firmware type (QMK/VIA, Vial, custom JSON) if known.
+      placeholder: e.g. Keychron Q1 (3434:0100)
+
+  - type: dropdown
+    id: web-via
+    attributes:
+      label: Does this work on https://usevia.app in Chrome/Chromium?
+      options:
+        - Yes
+        - No
+        - Not applicable / haven't tested
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: A clear description of what happened and what you expected.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Connect keyboard
+        2. Open VIA Desktop
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Open Help → Open Logs Folder in VIA Desktop and paste relevant log lines here.
+      render: text
