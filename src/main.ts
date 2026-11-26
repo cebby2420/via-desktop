@@ -35,14 +35,6 @@ type WindowBounds = {
   isMaximized?: boolean;
 };
 
-type WindowBounds = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  isMaximized?: boolean;
-};
-
 let serverPort: number | undefined;
 let serverProcess: ReturnType<typeof utilityProcess.fork> | undefined;
 let serverRestartCount = 0;
@@ -272,21 +264,6 @@ const createWindow = async () => {
       contextIsolation: true,
       nodeIntegration: false,
     },
-  });
-
-  mainWindow.once("ready-to-show", () => {
-    if (savedBounds?.isMaximized) {
-      mainWindow.maximize();
-    }
-    mainWindow.show();
-  });
-
-  mainWindow.on("close", () => {
-    const isMaximized = mainWindow.isMaximized();
-    const bounds = isMaximized
-      ? mainWindow.getNormalBounds()
-      : mainWindow.getBounds();
-    settings.setSync("windowBounds", { ...bounds, isMaximized });
   });
 
   mainWindow.once("ready-to-show", () => {
