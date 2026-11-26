@@ -81,7 +81,7 @@ const config: ForgeConfig = {
           owner: "cebby2420",
           name: "via-desktop",
         },
-        draft: false,
+        draft: true,
       },
     },
   ],

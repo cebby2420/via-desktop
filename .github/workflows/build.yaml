@@ -15,8 +15,11 @@ jobs:
   build_assets:
     runs-on: ubuntu-latest
     name: Build VIA assets
+    permissions:
+      contents: write
     outputs:
       via-build-artifact: ${{ steps.upload-artifact.outputs.artifact-id }}
+      version: ${{ steps.release.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -41,9 +44,26 @@ jobs:
           name: via-build
           path: dist/
           retention-days: 1
+      - name: Prepare draft release
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="$(date +'%Y.%-m%d').${{ github.run_number }}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            gh release create "v$VERSION" \
+              --repo "${{ github.repository }}" \
+              --title "v$VERSION" \
+              --draft \
+              --generate-notes \
+              --target "${{ github.sha }}"
+          fi
 
   build:
     needs: build_assets
+    permissions:
+      contents: write
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
@@ -70,8 +90,8 @@ jobs:
           node-version: lts/*
       - name: Install dependencies
         run: npm ci
-      - name: Set version to today
-        run: npm version $(date +'%Y.%m.%d') --no-git-tag-version
+      - name: Set release version
+        run: npm version ${{ needs.build_assets.outputs.version }} --no-git-tag-version
       - name: Publish for ${{ matrix.os }}
         if: github.event_name != 'pull_request'
         env:
@@ -80,3 +100,16 @@ jobs:
       - name: Build for ${{ matrix.os }}
         if: github.event_name == 'pull_request'
         run: npm run make -- --arch ${{ matrix.arch }}
+
+  publish_release:
+    needs: [build_assets, build]
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    name: Publish GitHub release
+    permissions:
+      contents: write
+    steps:
+      - name: Publish draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "v${{ needs.build_assets.outputs.version }}" --repo "${{ github.repository }}" --draft=false
