@@ -115,7 +115,17 @@ const requestHandler = async (
     }
   }
 
-  serveApplication(req, res, finalhandler(req, res));
+  serveApplication(req, res, () => {
+    if (
+      (req.method === "GET" || req.method === "HEAD") &&
+      !path.extname(requestPath)
+    ) {
+      req.url = "/index.html";
+      serveApplication(req, res, finalhandler(req, res));
+      return;
+    }
+    finalhandler(req, res)(undefined);
+  });
 };
 
 const server = http.createServer(requestHandler);
