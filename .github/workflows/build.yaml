@@ -11,6 +11,8 @@ on:
     types: [definition_update]
   workflow_dispatch:
 
+permissions: {}
+
 jobs:
   build_assets:
     runs-on: ubuntu-latest
@@ -21,12 +23,13 @@ jobs:
       via-build-artifact: ${{ steps.upload-artifact.outputs.artifact-id }}
       version: ${{ steps.release.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: the-via/app
           fetch-depth: 0
+          persist-credentials: false
       - name: Use Bun
-        uses: oven-sh/setup-bun@v1
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
       - name: Install dependencies
         run: |
           bun install
@@ -40,7 +43,7 @@ jobs:
         run: bun run build
       - name: Upload artifact
         id: upload-artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: via-build
           path: dist/
@@ -49,20 +52,24 @@ jobs:
         id: release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT_NAME: ${{ github.event_name }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_NUMBER: ${{ github.run_number }}
+          TARGET_SHA: ${{ github.sha }}
         run: |
           BASE_VERSION="$(date +'%Y.%-m.%-d')"
           VERSION="$BASE_VERSION"
-          if [ "${{ github.event_name }}" != "pull_request" ]; then
-            if gh api "repos/${{ github.repository }}/git/ref/tags/v$BASE_VERSION" >/dev/null 2>&1 \
-              || gh release view "v$BASE_VERSION" --repo "${{ github.repository }}" >/dev/null 2>&1; then
-              VERSION="${BASE_VERSION}-r${{ github.run_number }}"
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            if gh api "repos/$REPOSITORY/git/ref/tags/v$BASE_VERSION" >/dev/null 2>&1 \
+              || gh release view "v$BASE_VERSION" --repo "$REPOSITORY" >/dev/null 2>&1; then
+              VERSION="${BASE_VERSION}-r${RUN_NUMBER}"
             fi
             gh release create "v$VERSION" \
-              --repo "${{ github.repository }}" \
+              --repo "$REPOSITORY" \
               --title "v$VERSION" \
               --draft \
               --generate-notes \
-              --target "${{ github.sha }}"
+              --target "$TARGET_SHA"
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
@@ -80,32 +87,43 @@ jobs:
     runs-on: ${{ matrix.os }}
     name: Build VIA-desktop
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - if: ${{ matrix.os == 'ubuntu-latest' }}
         name: Install Flatpak dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y flatpak flatpak-builder elfutils
           flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           run-id: ${{ needs.build_assets.outputs.via-build-artifact }}
       - run: mv via-build/ public/
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: lts/*
       - name: Install dependencies
         run: npm ci
       - name: Set release version
-        run: npm version ${{ needs.build_assets.outputs.version }} --no-git-tag-version
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ needs.build_assets.outputs.version }}
+        run: npm version "$RELEASE_VERSION" --no-git-tag-version
       - name: Publish for ${{ matrix.os }}
         if: github.event_name != 'pull_request'
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run publish -- --arch ${{ matrix.arch }}
+          TARGET_ARCH: ${{ matrix.arch }}
+        # electron-forge publish uploads to GitHub Releases, not the npm registry.
+        run: npm run publish -- --arch "$TARGET_ARCH" # zizmor: ignore[use-trusted-publishing]
       - name: Build for ${{ matrix.os }}
         if: github.event_name == 'pull_request'
-        run: npm run make -- --arch ${{ matrix.arch }}
+        shell: bash
+        env:
+          TARGET_ARCH: ${{ matrix.arch }}
+        run: npm run make -- --arch "$TARGET_ARCH"
 
   publish_release:
     needs: [build_assets, build]
@@ -118,4 +136,6 @@ jobs:
       - name: Publish draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release edit "v${{ needs.build_assets.outputs.version }}" --repo "${{ github.repository }}" --draft=false
+          RELEASE_VERSION: ${{ needs.build_assets.outputs.version }}
+          REPOSITORY: ${{ github.repository }}
+        run: gh release edit "v$RELEASE_VERSION" --repo "$REPOSITORY" --draft=false
