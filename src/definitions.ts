@@ -13,6 +13,11 @@ type CatalogIndex = {
 
 export type Catalog = { index: CatalogIndex; hash: string };
 
+export type JsonFetcher = (
+  input: string,
+  init?: RequestInit,
+) => Promise<Response>;
+
 type LocalJson = { value: unknown; modifiedAt: number };
 
 export function readLocalJson(file: string): LocalJson | undefined {
@@ -68,7 +73,14 @@ function readCachedCatalog(dir: string) {
 }
 
 export function readCatalog(cacheDir: string, bundledDir: string): Catalog {
-  const local = readCachedCatalog(cacheDir) ?? readCatalogPair(bundledDir);
+  const cached = readCachedCatalog(cacheDir);
+  const bundled = readCatalogPair(bundledDir);
+  if (cached && bundled) {
+    return bundled.catalog.index.generatedAt > cached.catalog.index.generatedAt
+      ? bundled.catalog
+      : cached.catalog;
+  }
+  const local = cached ?? bundled;
   if (!local) {
     throw new Error("VIA Desktop has no usable local definition catalog.");
   }
@@ -76,7 +88,7 @@ export function readCatalog(cacheDir: string, bundledDir: string): Catalog {
 }
 
 async function fetchJson(
-  fetcher: typeof fetch,
+  fetcher: JsonFetcher,
   url: URL,
   signal = AbortSignal.timeout(downloadTimeout),
 ): Promise<unknown> {
@@ -102,7 +114,7 @@ export async function refreshCatalog(
   cacheDir: string,
   baseUrl: string,
   force = false,
-  fetcher = fetch,
+  fetcher: JsonFetcher = fetch,
 ): Promise<boolean> {
   const cached = readCachedCatalog(cacheDir);
   if (!force && cached && Date.now() - cached.modifiedAt < maxCatalogAge) {
@@ -145,7 +157,7 @@ export async function refreshKeyboardDefinition(
   file: string,
   url: URL,
   id: number,
-  fetcher = fetch,
+  fetcher: JsonFetcher = fetch,
 ): Promise<unknown> {
   const value = await fetchJson(fetcher, url);
   if (!isKeyboardDefinition(value, id)) {

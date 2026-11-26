@@ -60,6 +60,13 @@ test("starts with bundled definitions when the cache is empty or damaged", (t) =
   assert.deepEqual(readCatalog(cache, bundled), oldCatalog);
 });
 
+test("prefers a newer bundled catalog over an older cached catalog", (t) => {
+  const { cache, bundled } = profile(t);
+  writePair(cache, oldCatalog);
+  writePair(bundled, newCatalog);
+  assert.deepEqual(readCatalog(cache, bundled), newCatalog);
+});
+
 test("keeps the stale catalog and keyboard definition when offline", async (t) => {
   const { cache, bundled } = profile(t);
   writePair(cache, newCatalog, new Date("2001-01-01"));

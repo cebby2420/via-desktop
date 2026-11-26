@@ -16,7 +16,9 @@ export const initMenu = (
       label: "Settings",
       submenu: [
         {
+          id: "force-download",
           label: "Force download definitions",
+          enabled: !settings.getSync("onlyLocalDefinitions"),
           click: downloadKeyboardDefinitions,
         },
         {
@@ -24,10 +26,13 @@ export const initMenu = (
           type: "checkbox",
           checked: !!settings.getSync("onlyLocalDefinitions"),
           click: async () => {
-            await settings.set(
-              "onlyLocalDefinitions",
-              !(await settings.get("onlyLocalDefinitions")),
-            );
+            const nextValue = !(await settings.get("onlyLocalDefinitions"));
+            await settings.set("onlyLocalDefinitions", nextValue);
+
+            const forceDownloadItem = menu.getMenuItemById("force-download");
+            if (forceDownloadItem) {
+              forceDownloadItem.enabled = !nextValue;
+            }
 
             await localDefinitionsChanged();
           },
