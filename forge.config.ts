@@ -1,3 +1,6 @@
+import fs from "fs";
+import os from "os";
+import path from "path";
 import type { ForgeConfig } from "@electron-forge/shared-types";
 import { MakerSquirrel } from "@electron-forge/maker-squirrel";
 import { MakerDeb } from "@electron-forge/maker-deb";
@@ -8,6 +11,30 @@ import { MakerFlatpak } from "@electron-forge/maker-flatpak";
 import { VitePlugin } from "@electron-forge/plugin-vite";
 import { FusesPlugin } from "@electron-forge/plugin-fuses";
 import { FuseV1Options, FuseVersion } from "@electron/fuses";
+
+// RPM 4.20+ (e.g. Ubuntu 26.04) runs %install inside BUILD/<name>-<version>-build/,
+// breaking electron-installer-redhat's relative `cp -r usr/*`.
+// https://github.com/electron-userland/electron-installer-redhat/issues/343
+function getRpmSpecTemplate(): string | undefined {
+  if (process.platform !== "linux") return undefined;
+  const original = fs.readFileSync(
+    path.join(
+      process.cwd(),
+      "node_modules",
+      "electron-installer-redhat",
+      "resources",
+      "spec.ejs",
+    ),
+    "utf8",
+  );
+  const patched = original.replace(
+    " usr/* %{buildroot}/usr/",
+    " %{_topdir}/BUILD/usr/* %{buildroot}/usr/",
+  );
+  const target = path.join(os.tmpdir(), "via-desktop-rpm.spec.ejs");
+  fs.writeFileSync(target, patched);
+  return target;
+}
 
 const config: ForgeConfig = {
   packagerConfig: {
@@ -24,7 +51,12 @@ const config: ForgeConfig = {
     new MakerDMG({
       icon: "src/icon.icns",
     }),
-    new MakerRpm({}),
+    new MakerRpm({
+      options: {
+        // @ts-expect-error specTemplate is supported by electron-installer-redhat but omitted from MakerRpmConfigOptions
+        specTemplate: getRpmSpecTemplate(),
+      },
+    }),
     new MakerDeb({
       options: {
         icon: "src/icon.png",
