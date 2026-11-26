@@ -85,9 +85,10 @@ const requestHandler = async (
   req: http.IncomingMessage,
   res: http.ServerResponse,
 ) => {
-  const requestPath = (req.url ?? "/").split("?")[0];
+  const requestUrl = req.url ?? "/";
+  const requestPath = requestUrl.split("?")[0];
   if (requestPath.startsWith("/desktop-fonts/")) {
-    req.url = req.url.slice("/desktop-fonts".length);
+    req.url = requestUrl.slice("/desktop-fonts".length);
     serveDesktopFonts(req, res, finalhandler(req, res));
     return;
   }

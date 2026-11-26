@@ -8,6 +8,7 @@ import {
   protocol,
   SelectHidDeviceDetails,
   session,
+  shell,
   utilityProcess,
 } from "electron";
 import { spawn } from "child_process";
@@ -24,8 +25,8 @@ const VIA_BASE_URL = "https://usevia.app/";
 const APP_SCHEME = "via-desktop";
 const APP_ORIGIN = `${APP_SCHEME}://index.html`;
 
-let serverPort: number;
-let serverProcess: ReturnType<typeof utilityProcess.fork>;
+let serverPort: number | undefined;
+let serverProcess: ReturnType<typeof utilityProcess.fork> | undefined;
 let supportedVendorProductIds = new Set<number>();
 let catalogRefresh: Promise<boolean> | undefined;
 const defsFileDir = path.join(app.getPath("sessionData"), "definitions");
@@ -62,36 +63,38 @@ const run = (args: string[], done: () => void): void => {
 };
 
 // Handle Squirrel startup events (Windows only)
-const handleStartupEvent = () => {
+const handleStartupEvent = (): boolean => {
   if (process.platform !== "win32") {
     return false;
   }
 
   const squirrelCommand = process.argv[1];
   const target = path.basename(process.execPath);
+  const quit = () => app.quit();
   switch (squirrelCommand) {
     case "--squirrel-install":
-      run(["--createShortcut=" + target + ""], app.quit);
-      break;
+      run(["--createShortcut=" + target + ""], quit);
+      return true;
     case "--squirrel-uninstall":
-      run(["--removeShortcut=" + target + ""], app.quit);
-      break;
+      run(["--removeShortcut=" + target + ""], quit);
+      return true;
     case "--squirrel-obsolete":
       app.quit();
-      break;
-    case "--squirrel-updated":
       return true;
+    case "--squirrel-updated":
+      app.quit();
+      return true;
+    default:
+      return false;
   }
 };
 
-if (handleStartupEvent()) {
+const isSquirrelStartup = handleStartupEvent();
+const hasSingleInstanceLock =
+  !isSquirrelStartup && app.requestSingleInstanceLock();
+if (!isSquirrelStartup && !hasSingleInstanceLock) {
   app.quit();
-}
-
-const hasSingleInstanceLock = app.requestSingleInstanceLock();
-if (!hasSingleInstanceLock) {
-  app.quit();
-} else {
+} else if (hasSingleInstanceLock) {
   app.on("second-instance", () => {
     const existingWindow = BrowserWindow.getAllWindows()[0];
     if (existingWindow) {
@@ -119,21 +122,34 @@ const startServer = (): Promise<number> => {
     serverPort = undefined;
   }
 
-  return new Promise((resolve) => {
-    serverProcess = utilityProcess.fork(path.join(__dirname, "server.js"), [
+  return new Promise((resolve, reject) => {
+    const child = utilityProcess.fork(path.join(__dirname, "server.js"), [
       defsFileDir,
       VIA_BASE_URL,
-      settings.getSync("onlyLocalDefinitions").toString(),
+      String(Boolean(settings.getSync("onlyLocalDefinitions"))),
     ]);
+    serverProcess = child;
 
-    serverProcess.once(
+    let settled = false;
+    child.once(
       "message",
       ({ port, supportedIds }: { port: number; supportedIds: number[] }) => {
+        settled = true;
         supportedVendorProductIds = new Set(supportedIds);
         serverPort = port;
         resolve(port);
       },
     );
+    child.once("exit", (code) => {
+      if (serverProcess === child) {
+        serverProcess = undefined;
+        serverPort = undefined;
+      }
+      if (!settled) {
+        settled = true;
+        reject(new Error(`Server process exited before ready (code ${code})`));
+      }
+    });
   });
 };
 
@@ -177,7 +193,15 @@ const createWindow = async () => {
       .replace(/\bElectron\//, "via-desktop/"),
   );
 
-  const dismissedDevices = new Set<number>();
+  // Open external links in the system browser instead of a bare Electron window.
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//.test(url)) {
+      void shell.openExternal(url);
+    }
+    return { action: "deny" };
+  });
+
+  const loggedAllowedDevices = new Set<number>();
   let pickerOpen = false;
 
   const isAllowedDevice = (vendorProductId: number) =>
@@ -196,11 +220,14 @@ const createWindow = async () => {
         return false;
       }
 
-      log.info(
-        "Allowing device",
-        vendorProductId,
-        "name" in details.device ? details.device.name : "",
-      );
+      if (!loggedAllowedDevices.has(vendorProductId)) {
+        log.info(
+          "Allowing device",
+          vendorProductId,
+          "name" in details.device ? details.device.name : "",
+        );
+        loggedAllowedDevices.add(vendorProductId);
+      }
 
       return true;
     },
@@ -212,10 +239,10 @@ const createWindow = async () => {
     callback: (deviceId?: string) => void,
   ) => {
     event.preventDefault();
-    const candidates = deviceList.filter((device) => {
-      const id = getVendorProductId(device.vendorId, device.productId);
-      return !isAllowedDevice(id) && !dismissedDevices.has(id);
-    });
+    const candidates = deviceList.filter(
+      (device) =>
+        !isAllowedDevice(getVendorProductId(device.vendorId, device.productId)),
+    );
     if (candidates.length === 0) {
       const allowedDevice = deviceList.find((device) =>
         isAllowedDevice(getVendorProductId(device.vendorId, device.productId)),
@@ -236,7 +263,7 @@ const createWindow = async () => {
         title: "Unknown USB Keyboard",
         message: "Allow VIA Desktop to access an unknown keyboard?",
         detail:
-          "This keyboard is not in VIA's built-in device list. Select a device to allow it, or Cancel to ignore it for this session.",
+          "This keyboard is not in VIA's built-in device list. Select a device to allow it, or Cancel to ignore it.",
         buttons: [
           ...candidates.map(
             ({ name, vendorId, productId }) =>
@@ -258,11 +285,6 @@ const createWindow = async () => {
         allowUnknownDevice(vendorProductId);
         callback(chosen.deviceId);
       } else {
-        for (const device of candidates) {
-          dismissedDevices.add(
-            getVendorProductId(device.vendorId, device.productId),
-          );
-        }
         callback();
       }
     } catch {
@@ -280,7 +302,9 @@ const createWindow = async () => {
 
   const reloadDefinitions = async () => {
     await startServer();
-    await mainWindow.loadURL(APP_ORIGIN);
+    if (!mainWindow.isDestroyed()) {
+      await mainWindow.loadURL(APP_ORIGIN);
+    }
   };
 
   initMenu(
@@ -295,8 +319,10 @@ const createWindow = async () => {
     },
     async () => {
       await settings.set("allowedUnknownDevices", []);
-      dismissedDevices.clear();
-      await mainWindow.loadURL(APP_ORIGIN);
+      loggedAllowedDevices.clear();
+      if (!mainWindow.isDestroyed()) {
+        await mainWindow.loadURL(APP_ORIGIN);
+      }
     },
   );
 
@@ -312,6 +338,9 @@ app.whenReady().then(async () => {
   }
 
   protocol.handle(APP_SCHEME, (request) => {
+    if (serverPort === undefined) {
+      return new Response("Local server is not running", { status: 503 });
+    }
     const requested = new URL(request.url);
     const url = new URL(
       requested.pathname + requested.search,
@@ -358,6 +387,10 @@ app.whenReady().then(async () => {
       logger: log,
     });
   }
+});
+
+app.on("before-quit", () => {
+  serverProcess?.kill();
 });
 
 // Quit when all windows are closed, except on macOS. There, it's common
