@@ -2,7 +2,7 @@
   "name": "via-desktop",
   "productName": "via-desktop",
   "version": "1.0.0",
-  "description": "My Electron application description",
+  "description": "Offline-capable desktop application for VIA keyboard configuration",
   "main": ".vite/build/main.js",
   "scripts": {
     "test": "node -r ts-node/register/transpile-only --test",
