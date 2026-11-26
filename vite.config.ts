@@ -69,6 +69,9 @@ export default defineConfig({
         main: "src/main.ts",
         server: "src/server.ts",
       },
+      output: {
+        entryFileNames: "[name].js",
+      },
     },
   },
 });
