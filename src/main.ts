@@ -251,9 +251,10 @@ const createWindow = async () => {
     }
   };
 
-  mainWindow.webContents.session.on("select-hid-device", selectHidDevice);
+  const windowSession = mainWindow.webContents.session;
+  windowSession.on("select-hid-device", selectHidDevice);
   mainWindow.on("closed", () => {
-    mainWindow.webContents.session.off("select-hid-device", selectHidDevice);
+    windowSession.off("select-hid-device", selectHidDevice);
   });
 
   const reloadDefinitions = async () => {
