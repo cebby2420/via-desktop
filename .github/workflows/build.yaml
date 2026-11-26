@@ -55,7 +55,7 @@ jobs:
           if [ "${{ github.event_name }}" != "pull_request" ]; then
             if gh api "repos/${{ github.repository }}/git/ref/tags/v$BASE_VERSION" >/dev/null 2>&1 \
               || gh release view "v$BASE_VERSION" --repo "${{ github.repository }}" >/dev/null 2>&1; then
-              VERSION="${BASE_VERSION}-${{ github.run_number }}"
+              VERSION="${BASE_VERSION}-r${{ github.run_number }}"
             fi
             gh release create "v$VERSION" \
               --repo "${{ github.repository }}" \
