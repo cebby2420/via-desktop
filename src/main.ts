@@ -157,7 +157,6 @@ const createWindow = async () => {
   });
 
   const dismissedDevices = new Set<number>();
-  const loggedAllowedDevices = new Set<number>();
   let pickerOpen = false;
 
   const isAllowedDevice = (vendorProductId: number) =>
@@ -176,14 +175,11 @@ const createWindow = async () => {
         return false;
       }
 
-      if (!loggedAllowedDevices.has(vendorProductId)) {
-        log.info(
-          "Allowing device",
-          vendorProductId,
-          "name" in details.device ? details.device.name : "",
-        );
-        loggedAllowedDevices.add(vendorProductId);
-      }
+      log.info(
+        "Allowing device",
+        vendorProductId,
+        "name" in details.device ? details.device.name : "",
+      );
 
       return true;
     },
@@ -278,7 +274,6 @@ const createWindow = async () => {
     },
     async () => {
       await settings.set("allowedUnknownDevices", []);
-      loggedAllowedDevices.clear();
       dismissedDevices.clear();
       await mainWindow.loadURL(APP_ORIGIN);
     },
