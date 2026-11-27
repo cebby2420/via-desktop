@@ -29,7 +29,6 @@ export const initMenu = (
           click: async () => {
             const nextValue = !(await settings.get("onlyLocalDefinitions"));
             await settings.set("onlyLocalDefinitions", nextValue);
-            await settings.set("definitionsNetworkConsent", !nextValue);
 
             const forceDownloadItem = menu.getMenuItemById("force-download");
             if (forceDownloadItem) {
