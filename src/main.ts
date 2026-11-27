@@ -27,7 +27,7 @@ const APP_SCHEME = "via-desktop";
 const APP_ORIGIN = `${APP_SCHEME}://index.html`;
 const MAX_SERVER_RESTARTS = 3;
 
- type WindowBounds = {
+type WindowBounds = {
   x: number;
   y: number;
   width: number;
@@ -474,8 +474,9 @@ app.whenReady().then(async () => {
     },
   );
 
-  // Ask once, with network access disabled unless the user opts in.
-  if (typeof settings.getSync("definitionsNetworkConsent") !== "boolean") {
+  // Use onlyLocalDefinitions as the persisted choice: do not introduce a
+  // second, inverse preference just to remember this first-run decision.
+  if (!settings.hasSync("onlyLocalDefinitions")) {
     const choice = await dialog.showMessageBox({
       type: "question",
       title: "Keyboard definition downloads",
@@ -486,14 +487,7 @@ app.whenReady().then(async () => {
       defaultId: 0,
       cancelId: 0,
     });
-    const allowNetworkDownloads = choice.response === 1;
-    settings.setSync("definitionsNetworkConsent", allowNetworkDownloads);
-    settings.setSync("onlyLocalDefinitions", !allowNetworkDownloads);
-  } else if (!settings.hasSync("onlyLocalDefinitions")) {
-    settings.setSync(
-      "onlyLocalDefinitions",
-      !settings.getSync("definitionsNetworkConsent"),
-    );
+    settings.setSync("onlyLocalDefinitions", choice.response !== 1);
   }
 
   if (!settings.hasSync("allowedUnknownDevices")) {
