@@ -122,6 +122,79 @@ jobs:
         env:
           TARGET_ARCH: ${{ matrix.arch }}
         run: npm run make -- --arch "$TARGET_ARCH"
+      - name: Upload PR build artifacts
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: via-desktop-${{ matrix.os }}-${{ matrix.arch }}
+          path: out/make/
+          if-no-files-found: error
+          retention-days: 14
+
+  comment_pr_artifacts:
+    needs: [build_assets, build]
+    if: github.event_name == 'pull_request' && needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    name: Comment with PR build artifacts
+    permissions:
+      actions: read
+      pull-requests: write
+    steps:
+      - name: Comment with artifact links
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const runId = context.runId;
+            const pullNumber = context.payload.pull_request.number;
+            const artifacts = await github.paginate(
+              github.rest.actions.listWorkflowRunArtifacts,
+              { owner, repo, run_id: runId, per_page: 100 },
+            );
+            const buildArtifacts = artifacts.filter(
+              (artifact) => artifact.name.startsWith('via-desktop-') && !artifact.expired,
+            );
+            const marker = '<!-- via-desktop-pr-build-artifacts -->';
+            const artifactLines = buildArtifacts.length
+              ? buildArtifacts.map((artifact) => {
+                  const sizeMiB = (artifact.size_in_bytes / (1024 * 1024)).toFixed(1);
+                  const expires = new Date(artifact.expires_at).toISOString().slice(0, 10);
+                  const url = `https://github.com/${owner}/${repo}/actions/runs/${runId}/artifacts/${artifact.id}`;
+                  return `- [${artifact.name}](${url}) — ${sizeMiB} MiB; expires ${expires}`;
+                }).join('\n')
+              : 'No downloadable build artifacts were found for this run.';
+            const body = [
+              marker,
+              '### PR build artifacts',
+              '',
+              'Download the packaged builds below. Each link downloads that platform/architecture artifact as a ZIP; the ZIP contains the files produced by Electron Forge.',
+              '',
+              artifactLines,
+              '',
+              `[View workflow run and logs](https://github.com/${owner}/${repo}/actions/runs/${runId})`,
+            ].join('\n');
+            const comments = await github.paginate(
+              github.rest.issues.listComments,
+              { owner, repo, issue_number: pullNumber, per_page: 100 },
+            );
+            const existing = comments.find((comment) =>
+              comment.body?.includes(marker) && comment.user?.type === 'Bot',
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: pullNumber,
+                body,
+              });
+            }
 
   publish_release:
     needs: [build_assets, build]
