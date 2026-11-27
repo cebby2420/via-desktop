@@ -10,7 +10,7 @@ There are two parts to this:
 - The Electron application that hosts VIA locally and refreshes the keyboard catalog in the background
 - A local HTTP server that serves VIA, bundled Fira Sans fonts, and cached or bundled keyboard definitions
 
-VIA Desktop starts immediately from bundled or cached definitions and works offline. When online, it checks for catalog updates in the background and keeps the last usable cache if a refresh fails. **Settings → Only use local definitions** disables online checks, and **Settings → Force download definitions** refreshes immediately.
+VIA Desktop starts immediately from bundled or cached definitions and works offline. On first startup, it asks whether to enable network downloads of keyboard definitions. Network access remains disabled unless the user explicitly enables it. **Settings → Only use local definitions** can also disable or re-enable network checks, and **Settings → Force download definitions** refreshes immediately when network access is enabled.
 
 ### Unknown / Custom Keyboards
 
@@ -26,7 +26,7 @@ xattr -d com.apple.quarantine /Users/<me>/Downloads/via-desktop.app
 
 ### Linux USB permissions
 
-On Linux, grant your user read/write access to your keyboard's `/dev/hidraw*` device via `udev` rules (see the [QMK Linux udev instructions](https://docs.qmk.fm/faq_build#linux-udev-rules)).
+On Linux, grant your user read/write access to your keyboard's `/dev/hidraw*` device via `udev` rules. See the [QMK Linux udev instructions](https://docs.qmk.fm/faq_build#linux-udev-rules).
 
 ## Usage
 

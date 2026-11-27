@@ -27,7 +27,7 @@ const APP_SCHEME = "via-desktop";
 const APP_ORIGIN = `${APP_SCHEME}://index.html`;
 const MAX_SERVER_RESTARTS = 3;
 
-type WindowBounds = {
+ type WindowBounds = {
   x: number;
   y: number;
   width: number;
@@ -474,10 +474,28 @@ app.whenReady().then(async () => {
     },
   );
 
-  // Check if settings exist, if not, create them
-  if (!settings.hasSync("onlyLocalDefinitions")) {
-    settings.setSync("onlyLocalDefinitions", false);
+  // Ask once, with network access disabled unless the user opts in.
+  if (typeof settings.getSync("definitionsNetworkConsent") !== "boolean") {
+    const choice = await dialog.showMessageBox({
+      type: "question",
+      title: "Keyboard definition downloads",
+      message: "Allow VIA Desktop to download keyboard definitions?",
+      detail:
+        "If enabled, VIA Desktop will connect to usevia.app to check for definition updates and download definitions for keyboards. Bundled and cached definitions remain available offline. You can change this later in the Settings menu.",
+      buttons: ["Use local definitions only", "Enable network downloads"],
+      defaultId: 0,
+      cancelId: 0,
+    });
+    const allowNetworkDownloads = choice.response === 1;
+    settings.setSync("definitionsNetworkConsent", allowNetworkDownloads);
+    settings.setSync("onlyLocalDefinitions", !allowNetworkDownloads);
+  } else if (!settings.hasSync("onlyLocalDefinitions")) {
+    settings.setSync(
+      "onlyLocalDefinitions",
+      !settings.getSync("definitionsNetworkConsent"),
+    );
   }
+
   if (!settings.hasSync("allowedUnknownDevices")) {
     settings.setSync("allowedUnknownDevices", []);
   }
@@ -519,8 +537,7 @@ app.on("before-quit", () => {
 });
 
 // Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
+// for applications to stay active until the user quits explicitly with Cmd + Q.
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     app.quit();
