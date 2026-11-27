@@ -474,8 +474,6 @@ app.whenReady().then(async () => {
     },
   );
 
-  // Use onlyLocalDefinitions as the persisted choice: do not introduce a
-  // second, inverse preference just to remember this first-run decision.
   if (!settings.hasSync("onlyLocalDefinitions")) {
     const choice = await dialog.showMessageBox({
       type: "question",
